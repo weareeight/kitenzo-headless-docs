@@ -1,0 +1,11 @@
+---
+interface Props {
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  path: string;
+}
+const { method, path } = Astro.props;
+---
+<div class="kz-endpoint not-content">
+  <span class="kz-method" data-method={method}>{method}</span>
+  <code>{path}</code>
+</div>

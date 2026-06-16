@@ -1,0 +1,56 @@
+---
+title: Data you can pull
+description: The complete picture of what a headless consumer can read from a Kitenzo bundle.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+This section is the definitive list of **everything a headless consumer can read** from a Kitenzo bundle, and the rules and capabilities behind each field. If you're deciding what's possible headlessly, start here.
+
+<CardGrid>
+  <Card title="Bundle types" icon="seti:default">
+    `single-product`, `multiple-products`, `native` — what each means and how it maps to Shopify.
+
+    [Bundle types →](/data/bundle-types/)
+  </Card>
+  <Card title="Sections, products & variants" icon="laptop">
+    Section structure, allowed variants, live pricing, SKU, availability and inventory.
+
+    [Products →](/data/products/)
+  </Card>
+  <Card title="Discounts" icon="approve-check">
+    Flat and tiered discounts, types, thresholds, operators and minimums.
+
+    [Discounts →](/data/discounts/)
+  </Card>
+  <Card title="Limit rules" icon="setting">
+    All six rule types that constrain a valid bundle.
+
+    [Limit rules →](/data/limit-rules/)
+  </Card>
+  <Card title="Required products" icon="star">
+    Products that must be in every configuration.
+
+    [Required products →](/data/required-products/)
+  </Card>
+  <Card title="Conditions & subscriptions" icon="random">
+    The conditions-engine signal and subscription configuration.
+
+    [Conditions & subscriptions →](/data/conditions-subscriptions/)
+  </Card>
+</CardGrid>
+
+## Where each piece comes from
+
+| Data | Endpoint | SDK |
+|---|---|---|
+| Bundle list | `GET /bundles` | `listBundles()` / `useBundles()` |
+| Sections, discount, rules, required products | `GET /bundles/:id` | `getBundle()` / `useBundle()` |
+| Products, variants, pricing, inventory | `GET /bundles/:id/products` | merged into `getBundle()` |
+| Validated configuration + cart data | `POST /bundles/:id/configure` | `submitBundle()` / `useBundleCart()` |
+| Price for a selection | `POST /bundles/:id/price` | `calculatePrice()` / `useBundlePrice()` (local) |
+| Shop currency & money format | `GET /settings` | `getSettings()` / `useSettings()` |
+
+<Aside type="note" title="Kitenzo returns identifiers, not a product proxy">
+Product/variant data is returned for *building* the bundle (titles, images, pricing, inventory). Cart mutations and checkout run against the Shopify Storefront API using the returned **GIDs** — Kitenzo is not a cart/product proxy at checkout.
+</Aside>

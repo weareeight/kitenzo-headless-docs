@@ -1,0 +1,71 @@
+---
+title: Cart helpers
+description: Turn a configured bundle into Shopify cart lines and attributes — buildCartLines, buildCartPayload and addBundleToCart.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+After [`submitBundle`](/sdk/provider/) (or `useBundleCart`) returns a `SubmitBundleResult`, these helpers convert it into Storefront-API-ready cart lines and the `_bundles` attribute. They live in `@kitenzo/core` and are re-exported from `@kitenzo/react`.
+
+<Aside type="note" title="Two functions named addBundleToCart">
+The `addBundleToCart` **cart helper** (this page) writes lines + attributes to your Shopify cart. The `addBundleToCart` field returned by the [`useBundleCart` hook](/sdk/hooks/) instead *submits* the selection to the API. They're complementary: submit first, then add the result to the cart.
+</Aside>
+
+## `addBundleToCart(result, cart, context?)` — high level
+
+The simplest path. Builds lines, reads existing attributes, merges `_bundles`, and calls your cart operations:
+
+```ts
+import { addBundleToCart } from '@kitenzo/react';
+import { useCart } from '@shopify/hydrogen-react';
+
+const cart = useCart();
+
+await addBundleToCart(result, {
+  addLines: (lines) => cart.linesAdd(lines),
+  getAttributes: () => cart.attributes ?? [],
+  setAttributes: (attrs) => cart.cartAttributesUpdate(attrs),
+});
+```
+
+`cart` implements `CartOperations`:
+
+```ts
+interface CartOperations {
+  addLines: (lines: CartLine[]) => void | Promise<void>;
+  getAttributes: () => CartLineAttribute[] | Promise<CartLineAttribute[]>;
+  setAttributes: (attributes: CartLineAttribute[]) => void | Promise<void>;
+}
+```
+
+## `buildCartPayload(result, existingAttributes?, context?)` — mid level
+
+Returns `{ lines, attributes }` without performing the mutation, so you can apply it however your framework prefers:
+
+```ts
+import { buildCartPayload } from '@kitenzo/core';
+
+const { lines, attributes } = buildCartPayload(result, cart.attributes ?? []);
+// For native bundles, `attributes` includes the merged `_bundles` value.
+// For non-native bundles, only `lines` is meaningful.
+```
+
+## `buildCartLines(result, context?)` — low level
+
+Just the cart lines:
+
+- **Non-native bundle** → a single ghost-variant line.
+- **Native bundle** → one line per selected variant, each with the `_bundle_data` attribute the cart transform needs.
+
+```ts
+import { buildCartLines } from '@kitenzo/core';
+const lines = buildCartLines(result);
+```
+
+`CartLine` is `{ merchandiseId: string; quantity: number; attributes: CartLineAttribute[] }` and `CartLineAttribute` is `{ key: string; value: string }`.
+
+Merging multiple bundles into the same `_bundles` attribute is handled for you by `buildCartPayload` / `addBundleToCart` — pass the cart's existing attributes and the helper merges the new bundle in.
+
+<Aside type="caution" title="Why `_bundles` matters">
+For **native** bundles the discount is applied by the Shopify cart transform at checkout, which reads the `_bundles` cart attribute. If you build lines manually and skip it, the bundle is added at full price. `buildCartPayload` / `addBundleToCart` handle this for you. See [Cart & discount application](/guides/cart-discounts/).
+</Aside>

@@ -1,0 +1,40 @@
+---
+title: Glossary
+description: The core concepts and terms used throughout the Kitenzo Headless docs.
+---
+
+**Bundle**
+: A merchant-configured product offer made of one or more sections. Has a type, optional discount, limit rules and required products.
+
+**Bundle type**
+: One of `single-product`, `multiple-products`, or `native`. Determines how the bundle maps to Shopify products and how discounting works. See [Bundle types](/data/bundle-types/).
+
+**Section**
+: A group within a bundle that a customer picks from (e.g. "Choose a shirt"). Has an order, optional min/max quantities and a list of allowed products/variants.
+
+**Configured bundle**
+: The result of submitting a customer's selection to `POST /bundles/:id/configure`. Has a `configured_bundle_id`, a Shopify variant/product to add to cart, and pricing.
+
+**Headless API key**
+: A Bearer token (`kit_live_…` or `kit_test_…`) created in **Settings → Headless**. Scoped to your shop with optional allowed origins. See [API keys](/getting-started/api-keys/).
+
+**Cart transform**
+: The Shopify Function that applies the bundle discount at checkout. It runs on Shopify's servers and is identical for Liquid and headless storefronts.
+
+**`_bundles` (cart attribute)**
+: A cart-level attribute (JSON) that maps configured-bundle IDs to their content. **Required for native bundles** so the cart transform can apply the discount.
+
+**`_bundle_data` (line item attribute)**
+: A per-line attribute on native-bundle cart lines that ties each line to its configured bundle. Set automatically by the SDK's cart helpers.
+
+**Embed sub-API**
+: The `/api/headless/v1/embed/api/v1/…` endpoints used by the `<bundle-builder-bundle-v1>` web component. Same Bearer auth, proxy-shaped responses. See [Embed sub-API](/api/embed-api/).
+
+**Conditions engine**
+: A visual rules graph that controls conditional free items in a bundle. Headless exposes a `conditionsEngineEnabled` signal; evaluation is client-side. See [Conditions & subscriptions](/data/conditions-subscriptions/).
+
+**`@kitenzo/core` / `@kitenzo/react`**
+: The two published SDK packages. `core` is framework-agnostic (client, builder, cart/price utilities); `react` adds a provider, hooks and the `BundleEmbed` component.
+
+**Kitenzo / Bundle Builder / Eight**
+: **Kitenzo** is the product (formerly "Bundle Builder"). It's built by **Eight** (`eight-cdn.com`). You'll see all three names in older assets.

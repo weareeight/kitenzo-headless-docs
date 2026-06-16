@@ -1,0 +1,55 @@
+---
+title: Mode 1 — Embed overview
+description: Render the full admin-configured bundle UI in a headless storefront with no custom UI code.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+**Embed mode** renders the exact bundle experience your customers see on a Liquid theme — the admin-configured template, conditions engine, limit rules, tiered discounts and visual customizations — inside a headless storefront. You write **no bundle UI code**.
+
+It's the same `<bundle-builder-bundle-v1>` custom element used by Liquid themes. The difference: in headless it authenticates with a **headless API key** and talks to the [embed sub-API](/api/embed-api/) (with CORS), instead of going through the Shopify app proxy.
+
+## Three ways to embed
+
+<CardGrid>
+  <Card title="Web component" icon="puzzle">
+    Drop the `<bundle-builder-bundle-v1>` element straight into HTML. Works in any framework.
+
+    [Web component →](/embed/web-component/)
+  </Card>
+  <Card title="React — BundleEmbed" icon="seti:typescript">
+    A thin React wrapper that loads the script and mounts the element for you.
+
+    [React BundleEmbed →](/embed/react/)
+  </Card>
+  <Card title="Vanilla — createBundleEmbed" icon="seti:javascript">
+    Programmatic mount from `@kitenzo/core`, handling script load + cart interception.
+
+    [Vanilla createBundleEmbed →](/embed/vanilla/)
+  </Card>
+</CardGrid>
+
+## Assets
+
+The storefront script and CSS are served from the Kitenzo app host:
+
+```text
+https://live.bb.eight-cdn.com/bundle-builder-bundle.js   (type="module")
+https://live.bb.eight-cdn.com/bundle-builder-bundle.css
+```
+
+The embed sub-API the script calls lives under:
+
+```text
+https://live.bb.eight-cdn.com/api/headless/v1/embed
+```
+
+## How it works
+
+1. The custom element fetches bundle data from the embed sub-API using your `api-key` as a Bearer token.
+2. It renders the admin-configured template (conditions, limits, tiered discounts and all).
+3. When the customer adds to cart, instead of posting to Shopify's AJAX cart it fires a **`kitenzo:addtocart`** event so you can route the items through the Storefront API. See [Cart integration](/embed/cart/).
+
+<Aside type="caution" title="Native bundles need a cart attribute">
+For native bundles, your add-to-cart handler must write the `bundleContent` payload to the `_bundles` cart attribute, or the discount won't apply at checkout. Single-/multiple-product bundles don't need it.
+</Aside>

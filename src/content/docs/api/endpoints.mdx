@@ -1,0 +1,245 @@
+---
+title: Endpoints
+description: Every headless API endpoint — parameters, request bodies and exact response shapes.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Endpoint from '../../../components/Endpoint.astro';
+
+All paths are relative to `https://live.bb.eight-cdn.com/api/headless/v1` and require `Authorization: Bearer kit_live_…`.
+
+---
+
+## List bundles
+
+<Endpoint method="GET" path="/bundles" />
+
+Returns published bundles (capped at 100). Lightweight — no sections or product data.
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 42,
+    "name": "Build your own box",
+    "description": "Pick any 3 items",
+    "imageUrl": "https://cdn.shopify.com/…",
+    "type": "native",
+    "bundlingOption": "bundles",
+    "published": true
+  }
+]
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `number` | Bundle ID. |
+| `name` | `string` | Display name. |
+| `description` | `string` | Merchant description (may be empty). |
+| `imageUrl` | `string` | Bundle image (may be empty). |
+| `type` | `string` | `single-product` \| `multiple-products` \| `native`. |
+| `bundlingOption` | `string` | `bundles` or `upsells`. |
+| `published` | `boolean` | Always `true` here. |
+
+---
+
+## Get a bundle
+
+<Endpoint method="GET" path="/bundles/:id" />
+
+Full configuration: sections, discount, limit rules, required products and the conditions-engine signal. Product/variant detail comes from the [products endpoint](#bundle-products).
+
+**Response `200`**
+
+```json
+{
+  "id": 42,
+  "name": "Build your own box",
+  "description": "Pick any 3 items",
+  "imageUrl": "https://cdn.shopify.com/…",
+  "type": "native",
+  "bundlingOption": "bundles",
+  "layout": "multiple-sections",
+  "published": true,
+  "discount": {
+    "type": "percentage",
+    "value": "10.00",
+    "flatOrTiered": "flat",
+    "minimum": null,
+    "operator": null,
+    "tiers": []
+  },
+  "sections": [
+    {
+      "id": 1,
+      "name": "Choose a shirt",
+      "description": "",
+      "imageUrl": "",
+      "order": 0,
+      "products": [
+        { "bundleItemId": 7, "shopifyProductId": "111", "variantIds": ["1001", "1002"] }
+      ]
+    }
+  ],
+  "requiredProducts": [
+    { "shopifyProductId": "222", "variantIds": [], "quantity": 1 }
+  ],
+  "limitRules": [
+    { "type": "total-number-of-products", "operation": "gte", "value": "3", "sectionId": null }
+  ],
+  "conditionsEngineEnabled": false
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `layout` | `string` | `single-page` \| `multiple-sections`. |
+| `discount` | `object \| null` | See [Discounts](/data/discounts/). |
+| `sections[]` | `array` | `id`, `name`, `description`, `imageUrl`, `order`, `products[]`. |
+| `sections[].products[]` | `array` | `bundleItemId`, `shopifyProductId`, `variantIds[]` (empty = all variants allowed). |
+| `requiredProducts[]` | `array` | `shopifyProductId`, `variantIds[]`, `quantity`. |
+| `limitRules[]` | `array` | `type`, `operation`, `value`, `sectionId`. See [Limit rules](/data/limit-rules/). |
+| `conditionsEngineEnabled` | `boolean` | Whether the bundle has conditional free-item logic. |
+
+<Aside type="caution" title="404 for unpublished bundles">
+Only published bundles owned by the key's shop are returned. Anything else is a `404`.
+</Aside>
+
+---
+
+## Bundle products
+
+<Endpoint method="GET" path="/bundles/:id/products" />
+
+Full product and variant data for the bundle — live pricing, SKU, availability and inventory.
+
+**Response `200`**
+
+```json
+{
+  "products": [
+    {
+      "shopifyProductId": "111",
+      "shopifyProductGid": "gid://shopify/Product/111",
+      "title": "Classic Tee",
+      "handle": "classic-tee",
+      "imageUrl": "https://cdn.shopify.com/…",
+      "variants": [
+        {
+          "shopifyVariantId": "1001",
+          "shopifyVariantGid": "gid://shopify/ProductVariant/1001",
+          "title": "Small / Black",
+          "price": "29.99",
+          "sku": "TEE-S-BLK",
+          "available": true,
+          "inventoryQuantity": 42
+        }
+      ]
+    }
+  ]
+}
+```
+
+See [Sections, products & variants](/data/products/) for the availability rules.
+
+---
+
+## Configure a bundle
+
+<Endpoint method="POST" path="/bundles/:id/configure" />
+
+Validates a customer's selection, creates a configured bundle, and returns the data needed to add it to the Shopify cart.
+
+**Request body**
+
+```json
+{
+  "type": "native",
+  "products": [
+    { "variant": "1001", "product": "111", "section": 1 },
+    { "variant": "1002", "product": "111", "section": 1 }
+  ],
+  "countryCode": "US"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `string` | Yes | `native` \| `multiple-products` \| `single-product`. |
+| `products` | `array` | Yes | Non-empty list; each item needs `variant`, `product`, `section`. Max **200**. |
+| `countryCode` | `string` | No | For market-aware pricing. |
+
+**Response `200`**
+
+```json
+{
+  "configured_bundle_id": 9876,
+  "variant_id": "44556677",
+  "product_id": "111",
+  "discount": "<encrypted-discount-string>",
+  "subscription_id": null,
+  "pricing": {
+    "originalPrice": "59.98",
+    "discountedPrice": "53.98",
+    "discountType": "percentage",
+    "discountValue": "10.00",
+    "currency": "USD"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `configured_bundle_id` | `number` | The configured bundle's ID. |
+| `variant_id` | `string` | Shopify variant to add to cart. |
+| `product_id` | `string` | Shopify product for the bundle. |
+| `discount` | `string` | Encrypted discount string (for native bundles' cart transform). |
+| `subscription_id` | `number \| null` | Set when a recurring subscription option was chosen. |
+| `pricing` | `object` | Same shape as the [price endpoint](#price-a-selection). |
+
+---
+
+## Price a selection
+
+<Endpoint method="POST" path="/bundles/:id/price" />
+
+Calculates pricing for a selection **without** creating a configured bundle. Same request body as `/configure`.
+
+**Response `200`**
+
+```json
+{
+  "originalPrice": "59.98",
+  "discountedPrice": "53.98",
+  "discountType": "percentage",
+  "discountValue": "10.00",
+  "currency": "USD"
+}
+```
+
+<Aside type="tip" title="Prefer local pricing">
+For live UI updates, use the SDK's `calculatePrice` / `useBundlePrice` (client-side, no request) and reserve `/price` for server-side confirmation.
+</Aside>
+
+---
+
+## Shop settings
+
+<Endpoint method="GET" path="/settings" />
+
+**Response `200`**
+
+```json
+{
+  "activeFeatures": ["headless_api", "subscriptions"],
+  "currency": "USD",
+  "moneyFormat": "${{amount}}"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `activeFeatures` | `string[]` | Enabled Kitenzo features for the shop. |
+| `currency` | `string` | Shop currency code. |
+| `moneyFormat` | `string` | Shopify money format string (used by `formatMoney`). |

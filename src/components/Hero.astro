@@ -1,0 +1,29 @@
+---
+// Custom landing hero: mono kicker, two-tone headline, lead, tight CTAs,
+// and an immersive animated visual on the right.
+import HeroVisual from './HeroVisual.astro';
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+---
+<div class="kz-hero-wrap">
+  <div class="kz-hero-copy">
+    <p class="kz-kicker">Headless bundles for Shopify</p>
+    <h1 id="_top" data-page-title class="kz-hero-title" set:html={title} />
+    {tagline && <div class="kz-hero-lead" set:html={tagline} />}
+    {actions.length > 0 && (
+      <div class="kz-hero-actions">
+        {actions.map((a) => (
+          <a
+            class:list={['sl-link-button', a.variant === 'primary' ? 'primary' : 'minimal']}
+            href={typeof a.link === 'string' ? a.link : '#'}
+          >
+            {a.text}
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+  <div class="kz-hero-visual kz-reveal">
+    <HeroVisual />
+  </div>
+</div>

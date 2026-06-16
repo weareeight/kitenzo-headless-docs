@@ -1,0 +1,45 @@
+---
+title: Limit rules
+description: The six rule types that constrain a valid bundle, and how to read them.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Limit rules constrain what counts as a valid bundle (minimums, maximums, multiples). They're returned in `limitRules[]` on `GET /bundles/:id`.
+
+## Rule object
+
+```json
+{ "type": "total-number-of-products", "operation": "gte", "value": "3", "sectionId": null }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `string` | The rule type (below). |
+| `operation` | `string` | `gt` \| `gte` \| `lt` \| `lte` \| `eq`. |
+| `value` | `string` | The threshold. |
+| `sectionId` | `number \| null` | `null` = applies to the whole bundle; otherwise scoped to a section. |
+
+## Rule types
+
+| `type` | Constrains |
+|---|---|
+| `bundle-price` | The bundle price **after** discount. |
+| `bundle-price-before-discount` | The bundle price **before** discount. |
+| `total-number-of-products` | Total count of all products in the bundle. |
+| `amount-of-one-product` | Max quantity of any single product. |
+| `number-of-different-products` | Count of distinct products. |
+| `multiples-of` | The product count must be a multiple of `value` (e.g. 6, 12, 18). |
+
+<Aside type="note" title="`multiples-of` ignores `operation`">
+For the `multiples-of` rule, the `operation` field is not used — the rule simply checks that the count is divisible by `value`.
+</Aside>
+
+## How they're validated
+
+- Rules are evaluated once all sections are filled. The SDK's builder exposes violations as `errors` and reflects overall validity through `isValid` / `isComplete`.
+- Only rules that target the **bundle** are returned to headless consumers (rules that gate free items are handled internally).
+
+<Aside type="tip" title="Surface rule failures in your UI">
+Read `builder.errors` from `useBundleBuilder` to show why a selection isn't yet valid (e.g. "Add at least 3 products"). Each error has a `type` and a human-readable `message`.
+</Aside>

@@ -1,0 +1,47 @@
+---
+title: CORS & allowed origins
+description: How the Kitenzo API handles cross-origin browser requests, scoped per API key.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The headless API is designed to be called **directly from the browser**, so it implements CORS server-side. There's no proxy to run — the backend decides which origins may call it based on each key's **allowed origins** list.
+
+## Allowed origins
+
+Each API key has an `allowed_origins` list (set when you create the key):
+
+- **Empty** or containing `*` → **all origins allowed**.
+- Otherwise → only the exact origins listed (trailing slashes are ignored).
+
+```text
+https://mystore.com, https://staging.mystore.com
+```
+
+<Aside type="tip">
+For local development, set allowed origins to `*` (or include `http://localhost:3100`). For production, list your real storefront origins.
+</Aside>
+
+## CORS behavior
+
+For requests under `/api/headless/v1/`, the backend returns:
+
+| Header | Value |
+|---|---|
+| `Access-Control-Allow-Origin` | the requesting origin (when allowed) |
+| `Access-Control-Allow-Credentials` | `true` |
+| `Access-Control-Allow-Methods` | `GET, POST, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Authorization, Content-Type` |
+| `Access-Control-Max-Age` | `86400` |
+| `Vary` | `Origin` |
+
+- **Preflight** (`OPTIONS`) requests can't carry the `Authorization` header, so the backend checks whether **any** active key for the shop allows the origin, and responds **`204 No Content`** with CORS headers if so.
+- On a normal request, CORS headers are only set once the API key is authenticated and the origin is in that key's allowed list.
+
+<Aside type="caution" title="Origin not allowed?">
+If the browser blocks a request with a CORS error, the origin isn't in the key's `allowed_origins`. Recreate the key with the correct origin (origins can't be edited after creation).
+</Aside>
+
+## Server-side requests
+
+Server-to-server calls (SSR loaders, build steps, cURL) aren't subject to CORS. Keep the key in a server-only environment variable and call the API directly.

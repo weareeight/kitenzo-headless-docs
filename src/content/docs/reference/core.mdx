@@ -1,0 +1,76 @@
+---
+title: "@kitenzo/core"
+description: Complete export reference for the framework-agnostic Kitenzo SDK.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<p><span class="kz-badge">v0.2.6 · published</span></p>
+
+Framework-agnostic SDK. Zero runtime dependencies. Everything here is also re-exported by [`@kitenzo/react`](/reference/react/).
+
+```bash
+npm install @kitenzo/core
+```
+
+Default API base URL: `https://live.bb.eight-cdn.com/api/headless/v1` (override with `baseUrl`).
+
+## Public exports
+
+These are the **exact** top-level exports of `@kitenzo/core`:
+
+| Export | Kind | Purpose |
+|---|---|---|
+| `KitenzoClient` | class | REST client for the headless API. |
+| `KitenzoError` | class | Thrown on non-2xx responses (`.status`, `.response`). |
+| `createBundleBuilder` | function | Framework-agnostic builder state machine. |
+| `createBundleEmbed` | function | Mount the full bundle UI (Mode 1). |
+| `addBundleToCart` | function | Build + apply cart lines and `_bundles`. |
+| `buildCartPayload` | function | Return `{ lines, attributes }` for a configured bundle. |
+| `buildCartLines` | function | Return just the cart lines. |
+| `calculatePrice` | function | Local price calculation (flat + tiered). |
+| `formatMoney` | function | Format a number with a Shopify money format. |
+| `computeSectionQuantity` | function | Total quantity selected in a section. |
+| `isSectionMet` | function | Whether a section meets its min/max. |
+
+Plus all [TypeScript types](/reference/types/).
+
+<Aside type="caution" title="That's the whole surface">
+If a function or component isn't in the table above, it isn't a public export of `@kitenzo/core`. There is no prebuilt bundle UI component in core — `createBundleEmbed` mounts the full prebuilt UI; for custom UIs you compose with `createBundleBuilder` + the utilities.
+</Aside>
+
+## `KitenzoClient`
+
+```ts
+new KitenzoClient({ apiKey, apiVersion?, baseUrl? })
+```
+
+| Method | Returns | Description |
+|---|---|---|
+| `listBundles()` | `Promise<Bundle[]>` | Published bundles (no product data). |
+| `getBundle(id)` | `Promise<BundleDetail>` | One bundle, with products/variants merged in. |
+| `submitBundle(bundle, selections, { countryCode? })` | `Promise<SubmitBundleResult>` | Validate + configure. |
+| `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format, features. |
+
+See [Provider & client](/sdk/provider/) for full options and examples.
+
+## `createBundleBuilder(bundle)`
+
+Returns a state machine with `subscribe` / `getState` (drives `useSyncExternalStore` in React, or vanilla DOM):
+
+**Methods:** `addItem(sectionId, variantId, quantity?)`, `removeItem(sectionId, variantId)`, `updateQuantity(sectionId, variantId, quantity)`, `reset()`, `nextSection()`, `prevSection()`, `goToSection(index)`, `getSectionQuantity(sectionId)`, `getState()`, `subscribe(listener)`.
+
+**Snapshot (`getState()`):** `selections`, `currentSectionIndex`, `currentSection`, `isSectionValid`, `isValid`, `isComplete`, `allItems`, `errors`.
+
+The React hook [`useBundleBuilder`](/sdk/hooks/) wraps this.
+
+## Utilities
+
+| Function | Signature | Notes |
+|---|---|---|
+| `calculatePrice` | `(bundle, selections, currency?) => PriceResponse` | Handles flat + tiered, all operations and operator modes. |
+| `formatMoney` | `(amount, moneyFormat) => string` | Supports `{{amount}}`, `{{amount_no_decimals}}`, comma/apostrophe separators, etc. |
+| `computeSectionQuantity` | `(selections, sectionId) => number` | Total quantity in a section. |
+| `isSectionMet` | `(selections, section) => boolean` | Section meets its constraints. |
+| `addBundleToCart` / `buildCartPayload` / `buildCartLines` | — | See [Cart helpers](/sdk/cart/). |
+| `createBundleEmbed` | `(container, options) => BundleEmbedInstance` | See [Vanilla embed](/embed/vanilla/). |

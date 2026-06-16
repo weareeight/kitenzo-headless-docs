@@ -1,0 +1,58 @@
+---
+title: Server-side rendering
+description: Fetch bundle data in a Remix/Hydrogen loader and hydrate the builder on the client.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The SDK works on the server too. Fetch bundle data in a loader with `KitenzoClient`, then hand it to `useBundle` as `initialData` so the client doesn't refetch.
+
+## Remix / Hydrogen loader
+
+```tsx
+import { KitenzoClient } from '@kitenzo/react';
+import { useLoaderData } from '@remix-run/react';
+import type { LoaderFunctionArgs } from '@shopify/remix-oxygen';
+
+export async function loader({ params, context }: LoaderFunctionArgs) {
+  const client = new KitenzoClient({
+    apiKey: context.env.KITENZO_API_KEY, // server-only env var, no VITE_ prefix
+  });
+  const bundle = await client.getBundle(Number(params.id));
+  return { bundle };
+}
+
+export default function BundlePage() {
+  const { bundle } = useLoaderData<typeof loader>();
+  return <CustomBundle initialData={bundle} bundleId={bundle.id} />;
+}
+```
+
+## Hydrate on the client
+
+Pass the server data to `useBundle` via `initialData` to skip the initial client fetch:
+
+```tsx
+import { useBundle, useBundleBuilder } from '@kitenzo/react';
+
+function CustomBundle({ bundleId, initialData }) {
+  const { bundle } = useBundle(bundleId, { initialData });
+  const builder = useBundleBuilder(bundle);
+  // render your UI…
+}
+```
+
+## Environment variables
+
+| Context | Variable | Notes |
+|---|---|---|
+| Client (Vite/Hydrogen) | `VITE_KITENZO_API_KEY` | Vite exposes only `VITE_`-prefixed vars to the browser. Scope the key with allowed origins. |
+| Server (Remix loader) | `context.env.KITENZO_API_KEY` | Server-only, no prefix. Preferred — the key never reaches the browser. |
+
+<Aside type="tip" title="Prefer server-side keys">
+Fetching in a loader keeps your API key off the client entirely. Reserve browser-exposed (`VITE_`) keys for cases where you must call the API directly from the browser, and always restrict those keys' [allowed origins](/getting-started/cors/).
+</Aside>
+
+<Aside type="caution" title="Cart mutations still run client-side">
+SSR covers fetching and rendering. Adding to the Shopify cart (lines + `_bundles`) happens on the client through the Storefront API — see [Cart helpers](/sdk/cart/).
+</Aside>

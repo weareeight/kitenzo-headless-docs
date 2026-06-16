@@ -1,0 +1,93 @@
+---
+// Below-the-hero landing content: alternating sections, numbered steps, footer.
+import SiteFooter from './SiteFooter.astro';
+---
+
+<!-- Two ways to integrate -->
+<section class="kz-section kz-section--cream">
+  <div class="kz-section__inner">
+    <div class="kz-section__head is-center kz-reveal">
+      <span class="kz-kicker">Two integration modes</span>
+      <h2 class="kz-twotone"><span class="ink">Embed the full UI,</span> or build your own.</h2>
+      <p class="kz-section__lead">Same API, same key. Choose how much of the bundle experience you want to own.</p>
+    </div>
+    <div class="kz-grid">
+      <a class="kz-feature kz-reveal" href="/embed/">
+        <span class="kz-feature__eyebrow">Mode 01</span>
+        <h3>Embed the full UI</h3>
+        <p>Drop in the <code>&lt;bundle-builder-bundle-v1&gt;</code> web component (or React <code>BundleEmbed</code>). The admin-configured template, conditions, limit rules and tiered discounts — with zero UI code.</p>
+        <span class="more">Embed guide →</span>
+      </a>
+      <a class="kz-feature kz-reveal" href="/sdk/">
+        <span class="kz-feature__eyebrow">Mode 02</span>
+        <h3>Build a custom UI</h3>
+        <p>Use <code>@kitenzo/core</code> and <code>@kitenzo/react</code> to build a pixel-perfect UI with typed hooks. You own rendering; Kitenzo owns validation, pricing and the cart contract.</p>
+        <span class="more">SDK guide →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Everything you can pull -->
+<section class="kz-section">
+  <div class="kz-section__inner">
+    <div class="kz-section__head is-center kz-reveal">
+      <span class="kz-kicker">The data layer</span>
+      <h2 class="kz-twotone"><span class="ink">Everything your bundles know,</span> over one API.</h2>
+      <p class="kz-section__lead">Read structure, live pricing and rules straight from the same engine that powers Liquid storefronts.</p>
+    </div>
+    <div class="kz-grid">
+      <a class="kz-feature kz-reveal" href="/data/products/">
+        <span class="kz-feature__eyebrow">Structure</span>
+        <h3>Bundles, sections &amp; variants</h3>
+        <p>Published bundles, ordered sections, per-section product lists, and live variant pricing, SKU, availability and inventory.</p>
+      </a>
+      <a class="kz-feature kz-reveal" href="/data/discounts/">
+        <span class="kz-feature__eyebrow">Pricing</span>
+        <h3>Discounts</h3>
+        <p>Flat and tiered discounts — percentage, fixed amount or fixed price — with thresholds, operators and minimums.</p>
+      </a>
+      <a class="kz-feature kz-reveal" href="/data/limit-rules/">
+        <span class="kz-feature__eyebrow">Rules</span>
+        <h3>Rules &amp; requirements</h3>
+        <p>All six limit-rule types, required products, and the conditions-engine signal — everything that makes a bundle valid.</p>
+      </a>
+      <a class="kz-feature kz-reveal" href="/data/conditions-subscriptions/">
+        <span class="kz-feature__eyebrow">Extras</span>
+        <h3>Conditions &amp; subscriptions</h3>
+        <p>Conditional free-item signals and subscription configuration surfaced through the configure response.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Get started in 4 steps -->
+<section class="kz-section kz-section--cream">
+  <div class="kz-section__inner">
+    <div class="kz-section__head kz-reveal">
+      <span class="kz-kicker">How it works</span>
+      <h2 class="kz-twotone"><span class="ink">Get started</span> in four steps.</h2>
+    </div>
+    <div class="kz-steps kz-reveal">
+      <div><span class="num">01</span><h3>Request access</h3><p>Email support to enable Headless on your store.</p></div>
+      <div><span class="num">02</span><h3>Create a key</h3><p>Generate a <code>kit_live_…</code> key in Settings → Headless.</p></div>
+      <div><span class="num">03</span><h3>Fetch &amp; build</h3><p>Read bundles with the SDK and render your own UI.</p></div>
+      <div><span class="num">04</span><h3>Add to cart</h3><p>Submit the selection and write the cart attributes.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- Built on the same engine -->
+<section class="kz-section">
+  <div class="kz-section__inner kz-band kz-reveal">
+    <span class="kz-kicker">Same engine, same results</span>
+    <h2 class="kz-twotone"><span class="ink">Discounts apply at checkout,</span> exactly like Liquid.</h2>
+    <p class="kz-section__lead" style="margin-inline:auto;">Pricing, validation and the Shopify cart transform are identical whether a bundle renders in a theme or your headless frontend. No proxy to run — the SDK talks directly to the API.</p>
+    <div class="kz-textlinks">
+      <a href="/getting-started/quickstart/">Get started →</a>
+      <a href="/guides/cart-discounts/">Cart &amp; discounts →</a>
+    </div>
+  </div>
+</section>
+
+<SiteFooter />

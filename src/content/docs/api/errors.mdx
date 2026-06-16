@@ -1,0 +1,48 @@
+---
+title: Errors
+description: Status codes and error body shapes for the headless API.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Status codes
+
+| Status | Meaning | Body |
+|---|---|---|
+| `200` | Success | Endpoint-specific JSON |
+| `204` | No content (CORS preflight; also returned for some no-op cases) | — |
+| `400` | Validation error / invalid JSON / missing fields | `{ "error": "<message>" }` |
+| `403` | Missing/invalid key, feature not enabled, inactive key, or shop missing its Shopify token | *(no body)* |
+| `404` | Bundle not found, unpublished, or not owned by this shop | `{ "detail": "Not found." }` or `{ "error": "<message>" }` |
+| `429` | Rate limit exceeded | *(no body; `Retry-After` header)* |
+
+## Error body shapes
+
+**400 — validation**
+
+```json
+{ "error": "products is required and must be a non-empty list." }
+```
+
+**404 — not found**
+
+```json
+{ "detail": "Not found." }
+```
+
+Some endpoints (e.g. configure) use `{ "error": "Bundle does not exist" }` instead.
+
+**403 / 429** return no JSON body — rely on the status code (and `Retry-After` for 429).
+
+## Common causes
+
+| Symptom | Likely cause |
+|---|---|
+| `403` on every request | Wrong/revoked key, Headless feature not enabled for the shop, or (browser) origin not allowed. |
+| `404` for a bundle you can see in admin | The bundle is **not published**, or belongs to a different shop than the key. |
+| `400` from `/configure` or `/price` | `products` missing/empty, more than 200 products, or a product missing `variant`/`product`/`section`. |
+| `429` | Over 100 req/min on that key — back off for `Retry-After` seconds and cache aggressively. |
+
+<Aside type="tip" title="SDK errors">
+The SDK throws a `KitenzoError` (with `.status` and `.response`) on non-2xx responses, so you can branch on `error.status` in a `try/catch`.
+</Aside>

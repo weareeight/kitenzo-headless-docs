@@ -1,0 +1,40 @@
+---
+title: Required products
+description: Products that must be included in every bundle configuration.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Some bundles require specific products to always be present. These come back in `requiredProducts[]` on `GET /bundles/:id`.
+
+## Shape
+
+```json
+{ "shopifyProductId": "222", "variantIds": [], "quantity": 1 }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `shopifyProductId` | `string` | The product that must be included. |
+| `variantIds` | `string[]` | Specific variants that satisfy the requirement. **Empty = any variant** of the product. |
+| `quantity` | `number` | How many must be included (default 1). |
+
+## How to handle them
+
+<Aside type="caution" title="Required products are not auto-added">
+The builder does **not** automatically include required products — that's intentional. You decide how they appear in your UI (pre-selected, shown as "included", etc.). The builder's `isComplete` still checks that they're present, and a missing required product surfaces in `errors`.
+</Aside>
+
+A common pattern: when the bundle loads, add each required product to the relevant section (or a dedicated "included" area) using `builder.addItem(...)`, then render it as fixed.
+
+```tsx
+useEffect(() => {
+  if (!bundle?.requiredProducts) return;
+  for (const req of bundle.requiredProducts) {
+    const variantId = req.variantIds[0]; // or your own selection logic
+    if (variantId) builder.addItem(/* sectionId */, variantId, req.quantity);
+  }
+}, [bundle]);
+```
+
+The validated configuration from `submitBundle` / `/configure` enforces required products server-side, so a selection missing them will fail validation.

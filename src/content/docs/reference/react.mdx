@@ -1,0 +1,60 @@
+---
+title: "@kitenzo/react"
+description: Complete export reference for the React bindings of the Kitenzo SDK.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<p><span class="kz-badge">v0.2.6 · published</span></p>
+
+React bindings. Re-exports everything in [`@kitenzo/core`](/reference/core/) and adds a provider, hooks and the `BundleEmbed` component.
+
+```bash
+npm install @kitenzo/react
+```
+
+- **Depends on:** `@kitenzo/core`.
+- **Peer deps:** `react >= 18`, `react-dom >= 18`. Optional `@shopify/hydrogen-react >= 2024.0.0`.
+
+## Public exports
+
+### Provider
+
+| Export | Kind | Doc |
+|---|---|---|
+| `KitenzoProvider` | component | [Provider & client](/sdk/provider/) |
+| `useKitenzo` | hook | Returns the `KitenzoClient`. |
+| `useSettings` | hook | Returns `ShopSettings \| null`. |
+
+### Hooks
+
+| Export | Returns | Doc |
+|---|---|---|
+| `useBundles` | `{ bundles, isLoading, error, refetch }` | [Hooks](/sdk/hooks/) |
+| `useBundle` | `{ bundle, isLoading, error, refetch }` | [Hooks](/sdk/hooks/) |
+| `useBundleBuilder` | builder state + methods | [Hooks](/sdk/hooks/) |
+| `useBundlePrice` | price fields (raw + formatted) | [Hooks](/sdk/hooks/) |
+| `useBundleCart` | `{ addBundleToCart, isLoading, error, lastResult }` | [Hooks](/sdk/hooks/) |
+
+### Components
+
+| Export | Kind | Doc |
+|---|---|---|
+| `BundleEmbed` | component | [React — BundleEmbed](/embed/react/) |
+
+<Aside type="caution" title="BundleEmbed is the only component">
+`@kitenzo/react` exports exactly one component — `BundleEmbed` (for Mode 1). There is **no** `<BundleBuilder>`, `<BundleCard>`, `<BundlePrice>` or similar — UI for custom builds (Mode 2) is intentionally left to you. Compose it from the hooks above.
+</Aside>
+
+### Re-exports from core
+
+All of [`@kitenzo/core`](/reference/core/) is available from `@kitenzo/react`, so a React app installs one package:
+
+```ts
+import {
+  KitenzoProvider, useBundle, useBundleBuilder, useBundlePrice, useBundleCart, BundleEmbed,
+  KitenzoClient, createBundleBuilder, addBundleToCart, buildCartPayload, calculatePrice, formatMoney,
+} from '@kitenzo/react';
+```
+
+Plus every [TypeScript type](/reference/types/).

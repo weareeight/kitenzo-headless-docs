@@ -1,0 +1,70 @@
+---
+title: Local development
+description: Point the SDK at a local or staging API and test the full flow.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+By default the SDK and embed talk to the production API at `https://live.bb.eight-cdn.com/api/headless/v1`. Override the base URL to develop against a local or staging backend.
+
+## Override the base URL
+
+<Tabs>
+  <TabItem label="Provider">
+```tsx
+<KitenzoProvider apiKey="kit_test_…" baseUrl="http://localhost:8123/api/headless/v1">
+  <App />
+</KitenzoProvider>
+```
+  </TabItem>
+  <TabItem label="Client">
+```ts
+const client = new KitenzoClient({
+  apiKey: 'kit_test_…',
+  baseUrl: 'http://localhost:8123/api/headless/v1',
+});
+```
+  </TabItem>
+  <TabItem label="Embed">
+```ts
+createBundleEmbed(root, {
+  bundleId: 42,
+  apiKey: 'kit_test_…',
+  shopDomain: 'my-store.myshopify.com',
+  baseUrl: 'http://localhost:8123/api/headless/v1',
+  onAddToCart: (payload) => { /* … */ },
+});
+```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip" title="Allow localhost origins">
+For browser requests in dev, create a key with allowed origins set to `*` (or include your dev origin like `http://localhost:3100`). See [CORS](/getting-started/cors/).
+</Aside>
+
+## Get a Storefront API token (for cart testing)
+
+To exercise the cart end-to-end you need a Shopify Storefront API token. Kitenzo already holds the required `unauthenticated_*` scopes; ask support or your team for a token for your test store.
+
+## The headless playground
+
+The Kitenzo repo ships a Vite + React playground (`headless-playground`) that exercises the API and `@kitenzo/react` exactly as an external consumer would — bundle list, builder, embed mode, vanilla mode and a real Shopify cart via `@shopify/hydrogen-react`.
+
+```ini
+VITE_SHOP_DOMAIN=your-store.myshopify.com
+VITE_STOREFRONT_TOKEN=shpat_xxxxx
+VITE_KITENZO_API_KEY=kit_test_xxxxx
+# Optional: override the API URL (defaults to production)
+# VITE_KITENZO_BASE_URL=http://localhost:8123/api/headless/v1
+```
+
+It covers: list → detail → select → configure → cart, in React-component, web-component and vanilla-JS modes. It does **not** test SSR, the cart transform (which runs at checkout on Shopify), or checkout beyond the redirect.
+
+<Aside type="note" title="Building the storefront assets locally">
+For Mode 1 against a local server, build the theme extension and serve the assets, then point the script/CSS URLs and `prefix` at your dev server:
+
+```bash
+npm run storefront:build
+cp extensions/theme/assets/bundle-builder-bundle.* your-app/public/
+```
+</Aside>

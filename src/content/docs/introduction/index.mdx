@@ -1,0 +1,46 @@
+---
+title: Overview
+description: What Kitenzo Headless is, who it's for, and how it works at a glance.
+---
+
+import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
+
+**Kitenzo Headless** lets you take the bundles you've built in the Kitenzo admin and render them in any headless storefront — Shopify Hydrogen, Next.js, or a fully custom frontend — instead of (or alongside) a Liquid theme.
+
+It exposes three things:
+
+<CardGrid>
+  <Card title="A REST API" icon="seti:json">
+    Read your published bundles, their products and live pricing, validate a customer's selection, and get back ready-to-use cart lines. Base URL `https://live.bb.eight-cdn.com/api/headless/v1`.
+  </Card>
+  <Card title="A typed SDK" icon="seti:typescript">
+    `@kitenzo/core` (framework-agnostic) and `@kitenzo/react` (provider, hooks and the `BundleEmbed` component) wrap the API with full TypeScript types and a builder state machine.
+  </Card>
+  <Card title="A web component" icon="puzzle">
+    `<bundle-builder-bundle-v1>` renders the exact admin-configured bundle UI — the same component used by Liquid themes — with no custom UI code.
+  </Card>
+</CardGrid>
+
+## Why it exists
+
+Kitenzo's full discount engine, conditions, limit rules and cart transform run on Shopify's infrastructure. Headless storefronts can't use the Liquid app embed, so they had no way to surface bundles. Headless closes that gap: the **same backend engine** that powers bundles in a theme is exposed over an authenticated API, so a bundle behaves identically whether it's rendered in Liquid or in your own React app.
+
+<Aside type="note" title="Same engine, same results">
+Pricing, validation and the Shopify **cart transform** that applies the discount at checkout are unchanged. Headless is a new way to *read and configure* bundles — not a different pricing system.
+</Aside>
+
+## Who it's for
+
+- **Hydrogen / Remix** storefronts that want native bundles.
+- **Next.js** and other custom React frontends.
+- Any framework that can make an authenticated HTTP request and run the Shopify Storefront API for cart mutations.
+
+## What you'll need
+
+1. A Kitenzo installation with at least one **published** bundle.
+2. The **Headless feature enabled** for your shop (currently invite-only — see [Get access](/getting-started/access/)).
+3. A **headless API key** (`kit_live_…` / `kit_test_…`), created in **Settings → Headless**.
+4. A way to run Shopify cart mutations from your storefront (e.g. the Storefront API via `@shopify/hydrogen-react`).
+
+<LinkCard title="Pick an integration mode" description="Embed the full UI, or build your own with the SDK." href="/introduction/modes/" />
+<LinkCard title="Jump to the quickstart" description="From API key to first bundle in a few steps." href="/getting-started/quickstart/" />

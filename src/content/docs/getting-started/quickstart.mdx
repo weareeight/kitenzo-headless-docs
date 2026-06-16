@@ -1,0 +1,103 @@
+---
+title: Quickstart
+description: From API key to your first rendered bundle, in both integration modes.
+---
+
+import { Steps, Tabs, TabItem, Aside, LinkCard } from '@astrojs/starlight/components';
+
+This walks the shortest path to a working bundle. Pick the mode that matches how much UI control you want.
+
+## Prerequisites
+
+- Headless [enabled for your shop](/getting-started/access/) and at least one **published** bundle.
+- A [headless API key](/getting-started/api-keys/) (`kit_live_…` / `kit_test_…`).
+- A storefront that can run Shopify cart mutations (e.g. `@shopify/hydrogen-react`).
+
+## Mode 2 — SDK (custom UI)
+
+<Steps>
+
+1. **Install the SDK.** `@kitenzo/react` re-exports everything in `@kitenzo/core`, so one install is enough.
+
+   ```bash
+   npm install @kitenzo/react
+   ```
+
+2. **Wrap your app in the provider.**
+
+   ```tsx
+   import { KitenzoProvider } from '@kitenzo/react';
+
+   export default function App() {
+     return (
+       <KitenzoProvider apiKey={import.meta.env.VITE_KITENZO_API_KEY}>
+         <Outlet />
+       </KitenzoProvider>
+     );
+   }
+   ```
+
+3. **Fetch a bundle and drive the builder.**
+
+   ```tsx
+   import { useBundle, useBundleBuilder, useBundlePrice, useBundleCart } from '@kitenzo/react';
+
+   function BundlePage({ bundleId }: { bundleId: number }) {
+     const { bundle, isLoading } = useBundle(bundleId);
+     const builder = useBundleBuilder(bundle);
+     const { formattedDiscountedPrice, hasDiscount } = useBundlePrice(bundle, builder.selections);
+     const { addBundleToCart } = useBundleCart();
+
+     if (isLoading || !bundle) return null;
+
+     // Render bundle.sections yourself, call builder.addItem(sectionId, variantId)…
+     // Then submit:
+     // const result = await addBundleToCart(bundle, builder.selections);
+   }
+   ```
+
+4. **Add the result to the Shopify cart** (and write the `_bundles` attribute for native bundles). The `addBundleToCart` helper does both for you — see [Cart helpers](/sdk/cart/).
+
+</Steps>
+
+<LinkCard title="Full SDK guide" description="Provider, every hook, and the cart helpers." href="/sdk/" />
+
+## Mode 1 — Embed (full UI)
+
+<Tabs>
+  <TabItem label="HTML">
+```html
+<link rel="stylesheet" href="https://live.bb.eight-cdn.com/bundle-builder-bundle.css" />
+<script src="https://live.bb.eight-cdn.com/bundle-builder-bundle.js" async type="module"></script>
+
+<bundle-builder-bundle-v1
+  id="42"
+  api-key="kit_live_…"
+  prefix="https://live.bb.eight-cdn.com/api/headless/v1/embed"
+  data='{"shop":{"domain":"your-store.myshopify.com","shopCurrency":"USD","cartCurrency":"USD","enabledCurrencies":["USD"],"moneyFormat":"${{amount}}"}}'
+>
+  <div class="bundle-builder-app--loading-spinner"><div></div></div>
+</bundle-builder-bundle-v1>
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { BundleEmbed } from '@kitenzo/react';
+
+<BundleEmbed
+  bundleId={42}
+  apiKey={import.meta.env.VITE_KITENZO_API_KEY}
+  shopDomain="your-store.myshopify.com"
+  onAddToCart={({ lines, bundleContent }) => {
+    // add lines to the Shopify cart; write `_bundles` if bundleContent is present
+  }}
+/>
+```
+  </TabItem>
+</Tabs>
+
+<LinkCard title="Full Embed guide" description="Web component attributes, React wrapper, vanilla JS and cart interception." href="/embed/" />
+
+<Aside type="tip" title="Test locally first">
+The SDK and embed default to the production API. To point at a local backend or a test store, see [Local development](/guides/local-dev/).
+</Aside>

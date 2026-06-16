@@ -1,0 +1,73 @@
+---
+title: React — BundleEmbed
+description: The BundleEmbed React component — the only component @kitenzo/react ships.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`BundleEmbed` is a thin React wrapper around [`createBundleEmbed`](/embed/vanilla/). It loads the storefront script, fetches shop settings, mounts the `<bundle-builder-bundle-v1>` element and intercepts add-to-cart — all for you. It's self-contained and does **not** require `<KitenzoProvider>`.
+
+<Aside type="note" title="The only component in @kitenzo/react">
+`@kitenzo/react` ships exactly one component — `BundleEmbed`. For custom UIs there is **no** prebuilt `<BundleBuilder>` component; you compose the UI yourself with [hooks](/sdk/hooks/). UI is intentionally left to the consumer.
+</Aside>
+
+## Install
+
+```bash
+npm install @kitenzo/react
+```
+
+Peer dependencies: `react >= 18`, `react-dom >= 18`. Optional: `@shopify/hydrogen-react >= 2024.0.0`.
+
+## Usage
+
+```tsx
+import { BundleEmbed } from '@kitenzo/react';
+import { useCart } from '@shopify/hydrogen-react';
+
+function BundlePage() {
+  const cart = useCart();
+
+  return (
+    <BundleEmbed
+      bundleId={42}
+      apiKey={import.meta.env.VITE_KITENZO_API_KEY}
+      shopDomain="your-store.myshopify.com"
+      onAddToCart={({ lines, bundleContent }) => {
+        cart.linesAdd(lines);
+
+        if (bundleContent) {
+          const existing = JSON.parse(
+            cart.attributes?.find((a) => a.key === '_bundles')?.value ?? '{}'
+          );
+          existing[bundleContent.configuredBundleId] = bundleContent;
+          cart.cartAttributesUpdate([
+            ...(cart.attributes ?? []).filter((a) => a.key !== '_bundles'),
+            { key: '_bundles', value: JSON.stringify(existing) },
+          ]);
+        }
+      }}
+    />
+  );
+}
+```
+
+## Props
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `bundleId` | `number` | Yes | Bundle to display. |
+| `apiKey` | `string` | Yes | Headless API key. |
+| `shopDomain` | `string` | Yes | Your `myshopify.com` domain. |
+| `onAddToCart` | `(payload: EmbedCartPayload) => void` | Yes | Called with normalized cart lines (+ `bundleContent` for native bundles). |
+| `onError` | `(error: Error) => void` | No | Called on script/settings load failure. |
+| `baseUrl` | `string` | No | Override the API base URL (default `https://live.bb.eight-cdn.com/api/headless/v1`). |
+| `className` | `string` | No | CSS class for the container `div`. |
+
+`EmbedCartPayload` is `{ lines: CartLine[]; bundleContent?: BundleContentPayload }`.
+
+<Aside type="caution" title="One embed per page">
+Only one `<BundleEmbed>` (or `<bundle-builder-bundle-v1>`) should be mounted per page.
+</Aside>
+
+See [Cart integration](/embed/cart/) for the full `onAddToCart` payload and how to write the `_bundles` attribute.

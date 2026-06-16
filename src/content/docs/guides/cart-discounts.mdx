@@ -1,0 +1,52 @@
+---
+title: Cart & discount application
+description: The single most important integration detail — how bundle discounts reach checkout.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This is the detail most worth getting right. Kitenzo doesn't discount at request time — the **Shopify cart transform** applies the bundle discount at checkout. Your job is to give the cart the data the transform needs.
+
+## How discounting works by bundle type
+
+| Bundle type | Where the discount lives | What you must do |
+|---|---|---|
+| `single-product` | In the variant price | Add the configured variant. Nothing extra. |
+| `multiple-products` | In the variant price | Add the configured variant. Nothing extra. |
+| `native` | Applied at checkout by the cart transform | Add one line per variant **with `_bundle_data`**, and write the cart-level **`_bundles`** attribute. |
+
+## The two cart keys (native bundles)
+
+- **`_bundle_data`** — a per-line attribute that ties each cart line to its configured bundle. The SDK's `buildCartLines` adds it automatically. If you reconstruct lines by hand (e.g. restoring a saved cart), every native-bundle line **must** carry it.
+- **`_bundles`** — a cart-level attribute (JSON) mapping `configuredBundleId` → bundle content. The cart transform reads it to apply the discount. Set it via `buildCartPayload` / `addBundleToCart`, or write it yourself from the embed's `bundleContent`.
+
+<Aside type="danger" title="Skip `_bundles` and the bundle is full price">
+If a native bundle's lines reach checkout without the `_bundles` attribute (or without `_bundle_data` on each line), the cart transform can't match them and the discount is **not** applied. This is the most common headless integration bug.
+</Aside>
+
+## The reliable path (SDK)
+
+```ts
+const result = await client.submitBundle(bundle, selections); // or useBundleCart()
+await addBundleToCart(result, {
+  addLines: (lines) => cart.linesAdd(lines),
+  getAttributes: () => cart.attributes ?? [],
+  setAttributes: (attrs) => cart.cartAttributesUpdate(attrs),
+});
+```
+
+`addBundleToCart` (and `buildCartPayload`) inspect the bundle type and only write `_bundles` when needed — so the same code is correct for all three types.
+
+## The reliable path (Embed)
+
+The embed gives you everything in the `onAddToCart` payload — add `lines`, and if `bundleContent` is present (native), write it into `_bundles`. See [Cart integration](/embed/cart/).
+
+## Verifying it worked
+
+- Inspect the cart's attributes: a native bundle should have a `_bundles` entry keyed by the configured bundle ID.
+- Each native-bundle line should carry a `_bundle_data` attribute.
+- The discount itself appears at **checkout** (the transform runs on Shopify's servers), not necessarily in an intermediate cart subtotal.
+
+<Aside type="note" title="Same engine as Liquid">
+This is exactly how discounting works on Liquid themes — the only difference is that on Liquid the bundle UI writes the cart attributes for you, whereas headless puts you in control of the cart.
+</Aside>

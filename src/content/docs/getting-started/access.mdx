@@ -1,0 +1,40 @@
+---
+title: Get access
+description: Kitenzo Headless is invite-only. Here's how to have it enabled for your store.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Kitenzo Headless is currently **invite-only**, gated behind a feature flag (`headless_api`). It isn't self-serve yet — the **Settings → Headless** tab only appears once the feature is enabled for your shop.
+
+## Request access
+
+<Steps>
+
+1. **Email [support@kitenzo.com](mailto:support@kitenzo.com)** from your store's account, including your `myshopify.com` domain and a sentence on what you're building (Hydrogen, Next.js, custom, etc.).
+
+2. We enable the **Headless** feature for your shop.
+
+3. The **Settings → Headless** tab appears in the Kitenzo admin. From there you can [create an API key](/getting-started/api-keys/).
+
+</Steps>
+
+<Aside type="note" title="Why invite-only?">
+Headless changes how bundles are surfaced and how the cart is assembled. We enable it deliberately so we can help you get the cart and discount integration right for your stack.
+</Aside>
+
+## Prerequisites
+
+Before Headless is useful, make sure you have:
+
+- The **Kitenzo app installed** on your Shopify store.
+- At least one **published** bundle (drafts are not returned by the API).
+- A headless storefront that can make authenticated HTTP requests and run Shopify cart mutations.
+
+## What "enabled" gives you
+
+- The **Settings → Headless** admin tab for managing API keys.
+- Authenticated access to the **headless API** at `https://live.bb.eight-cdn.com/api/headless/v1`.
+- The ability to load the storefront **web component** assets for Mode 1.
+
+Without the feature enabled, the API responds with **403** and the admin tab stays hidden.

@@ -1,0 +1,45 @@
+---
+title: CORS
+description: How the API handles cross-origin requests, per API key.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The API is built to be called from the browser, so it implements CORS itself — keyed to each API key's allowed origins. There's no proxy to run. The merchant-facing setup is covered in [CORS & allowed origins](/getting-started/cors/); this page is the protocol-level reference.
+
+## Scope
+
+CORS handling applies to requests under `/api/headless/v1/`. Requests are CSRF-exempt (they authenticate by API key, not session cookies).
+
+## Response headers (allowed origin)
+
+| Header | Value |
+|---|---|
+| `Access-Control-Allow-Origin` | the request's `Origin` |
+| `Access-Control-Allow-Credentials` | `true` |
+| `Access-Control-Allow-Methods` | `GET, POST, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Authorization, Content-Type` |
+| `Access-Control-Max-Age` | `86400` |
+| `Vary` | `Origin` |
+
+## Preflight (`OPTIONS`)
+
+Browsers send preflight requests without the `Authorization` header, so the API can't identify the specific key. Instead it checks whether **any** active key for the shop allows the `Origin`, and responds:
+
+```http
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://mystore.com
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Authorization, Content-Type
+Access-Control-Max-Age: 86400
+```
+
+If no key allows the origin, the preflight returns `204` **without** CORS headers and the browser blocks the real request.
+
+## Normal requests
+
+On a `GET`/`POST`, CORS headers are added only after the key authenticates **and** the request's origin is in that key's `allowed_origins`.
+
+<Aside type="caution" title="Getting a CORS error?">
+The origin isn't in the key's allowed list. Origins can't be edited after creation — recreate the key with the correct origin, or use `*` for development.
+</Aside>

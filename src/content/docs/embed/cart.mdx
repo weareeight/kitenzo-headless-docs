@@ -1,0 +1,96 @@
+---
+title: Cart integration (Embed)
+description: Intercept the kitenzo:addtocart event and route bundle items through the Storefront API.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+On a Liquid theme, the bundle UI adds items via Shopify's AJAX Cart API (`/cart/add.js`). In a headless store there's no AJAX cart, so you intercept the add-to-cart action and use the **Storefront API** instead.
+
+## Recommended: `onAddToCart` (createBundleEmbed / BundleEmbed)
+
+When you mount the embed via [`createBundleEmbed`](/embed/vanilla/) or [`BundleEmbed`](/embed/react/), the embed intercepts the event, normalizes the payload and calls your `onAddToCart` handler:
+
+```ts
+import { createBundleEmbed } from '@kitenzo/core';
+
+createBundleEmbed(root, {
+  bundleId: 42,
+  apiKey: 'kit_live_…',
+  shopDomain: 'my-store.myshopify.com',
+  onAddToCart: ({ lines, bundleContent }) => {
+    cart.linesAdd(lines);                                  // 1. add lines
+    if (bundleContent) {                                   // 2. native bundles only
+      const existing = JSON.parse(
+        cart.attributes?.find((a) => a.key === '_bundles')?.value ?? '{}'
+      );
+      existing[bundleContent.configuredBundleId] = bundleContent;
+      cart.cartAttributesUpdate([
+        ...(cart.attributes ?? []).filter((a) => a.key !== '_bundles'),
+        { key: '_bundles', value: JSON.stringify(existing) },
+      ]);
+    }
+  },
+});
+```
+
+<Aside type="caution" title="The `_bundles` attribute is required for native bundles">
+Without it, the cart transform can't match the lines to a bundle and the items are added at **full price**. `bundleContent` is present only for native bundles — always check for it and write it.
+</Aside>
+
+## Alternative: raw `kitenzo:addtocart` event
+
+If you load the web component directly (no `@kitenzo/core`), listen for the event yourself:
+
+```js
+document.addEventListener('kitenzo:addtocart', (event) => {
+  event.preventDefault(); // cancel the default /cart/add.js POST
+
+  const lines = event.detail.items.map((item) => ({
+    merchandiseId: `gid://shopify/ProductVariant/${item.id}`,
+    quantity: item.quantity,
+    attributes: Object.entries(item.properties || {}).map(([key, value]) => ({
+      key,
+      value: String(value),
+    })),
+  }));
+
+  cart.linesAdd(lines);
+
+  if (event.detail.bundleContent) {
+    const bc = event.detail.bundleContent;
+    const existing = JSON.parse(
+      cart.attributes?.find((a) => a.key === '_bundles')?.value ?? '{}'
+    );
+    existing[bc.configuredBundleId] = bc;
+    cart.cartAttributesUpdate([
+      ...(cart.attributes ?? []).filter((a) => a.key !== '_bundles'),
+      { key: '_bundles', value: JSON.stringify(existing) },
+    ]);
+  }
+});
+
+// Fires after the add-to-cart flow completes (headless and Liquid paths)
+document.addEventListener('kitenzo:addtocart:complete', () => {
+  // refresh cart state, navigate to the cart page, etc.
+});
+```
+
+### `kitenzo:addtocart` event detail
+
+| Field | Type | Description |
+|---|---|---|
+| `items` | `Array<{ id, quantity, properties }>` | Cart items in Shopify AJAX Cart format. |
+| `bundleContent` | `object \| undefined` | Bundle metadata for native bundles (`configuredBundleId`, `discount`, `title`, `items`, …). |
+
+You can also mutate `event.detail.items` in the listener to adjust the payload before it's sent (when you don't call `preventDefault()`).
+
+## Line item attributes
+
+Each item already carries the line item attributes the cart transform needs (`_bundle_data`, `_bundle_id`, `_bundle_price`, subscription fields, etc.) — **pass them through as-is**. If you reconstruct lines manually (e.g. restoring a saved cart), every native-bundle line **must** include `_bundle_data`, which the transform uses to match the line to its bundle.
+
+For **single- and multiple-product bundles**, `bundleContent` is `undefined` and no `_bundles` attribute is needed — the discount is already in the variant price. Just add the lines.
+
+## Behavior on headless vs Liquid
+
+When the `kitenzo:addtocart` event is intercepted with `preventDefault()`, the bundle UI **skips** the `/cart.js` and `/cart/update.js` calls and delegates cart management entirely to your `onAddToCart` handler. On Liquid storefronts (no interception) it writes the cart attributes itself.

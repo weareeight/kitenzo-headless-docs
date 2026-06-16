@@ -1,0 +1,112 @@
+---
+title: Embed sub-API
+description: The proxy-shaped endpoints used by the <bundle-builder-bundle-v1> web component.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Endpoint from '../../../components/Endpoint.astro';
+
+The web component (Mode 1) talks to a separate set of endpoints that return **proxy-shaped** responses (the same shapes the Liquid app proxy returns), wrapped with headless Bearer auth and CORS. You normally don't call these directly — the storefront script does.
+
+All paths are under:
+
+```text
+https://live.bb.eight-cdn.com/api/headless/v1/embed/api/v1
+```
+
+and require `Authorization: Bearer kit_live_…`.
+
+---
+
+## Get bundle (proxy shape)
+
+<Endpoint method="GET" path="/embed/api/v1/bundle" />
+
+| Query param | Type | Description |
+|---|---|---|
+| `id` | `number` | Bundle ID to fetch. |
+| `productHandle` | `string` | Resolve the bundle by product handle (alternative to `id`). |
+| `lang` | `string` | Locale for the response. |
+| `forceTemplate` | `string` | Template code override. |
+| `visitor_id` | `string` | UUID for A/B test routing. |
+| `ab_bypass` | `boolean` | Skip A/B routing when `true`. |
+
+Returns the proxy-format bundle JSON, with `productUrl` / `bundleUrl` rewritten to headless embed paths.
+
+---
+
+## Get settings (proxy shape)
+
+<Endpoint method="GET" path="/embed/api/v1/settings" />
+
+Proxy-format shop settings (accepts an optional `lang` query param).
+
+---
+
+## Configure (embed)
+
+<Endpoint method="POST" path="/embed/api/v1/bundle/:id/product" />
+
+Configures a bundle — delegates to the same logic as [`/bundles/:id/configure`](/api/endpoints/#configure-a-bundle).
+
+---
+
+## Get configured variant content
+
+<Endpoint method="GET" path="/embed/api/v1/bundle/:id/variant/:variantId" />
+
+```json
+{
+  "items": [
+    { "variantId": 1001, "sectionId": 1, "availableVariantIds": [1001, 1002] }
+  ]
+}
+```
+
+---
+
+## Batch content
+
+<Endpoint method="POST" path="/embed/api/v1/content" />
+
+Fetch content for multiple configured bundles at once (max **100**).
+
+**Request**
+
+```json
+{ "bundles": [ { "configuredBundleId": 9876 }, { "variantId": 44556677 } ] }
+```
+
+**Response**
+
+```json
+{
+  "bundles": [
+    { "configuredBundleId": 9876, "variantId": "44556677", "content": "…" }
+  ]
+}
+```
+
+---
+
+## Back-in-stock notify
+
+<Endpoint method="POST" path="/embed/api/v1/notify" />
+
+Register a stock reminder for a variant.
+
+**Request**
+
+```json
+{ "variant": "1001", "customer_email": "shopper@example.com", "bundle_name": "Build your own box" }
+```
+
+**Response**
+
+```json
+{ "message_code": "success" }
+```
+
+<Aside type="note" title="Use the SDK instead">
+For custom UIs, prefer the [main API endpoints](/api/endpoints/) and the [SDK](/sdk/) — the embed sub-API exists to serve the prebuilt web component.
+</Aside>

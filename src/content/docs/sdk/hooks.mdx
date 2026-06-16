@@ -1,0 +1,114 @@
+---
+title: Hooks
+description: Every React hook in @kitenzo/react — useBundles, useBundle, useBundleBuilder, useBundlePrice, useBundleCart.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+All hooks require a `<KitenzoProvider>` ancestor (except where noted). Provider hooks `useKitenzo` and `useSettings` are documented on the [Provider & client](/sdk/provider/) page.
+
+## `useBundles()`
+
+Fetch the list of published bundles on mount.
+
+```tsx
+const { bundles, isLoading, error, refetch } = useBundles();
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `bundles` | `Bundle[]` | Published bundles (no product data). |
+| `isLoading` | `boolean` | Initial load state. |
+| `error` | `Error \| null` | Fetch error, if any. |
+| `refetch` | `() => void` | Re-run the request. |
+
+## `useBundle(id, options?)`
+
+Fetch a single bundle's full detail (sections + products + variants). Supports SSR hydration.
+
+```tsx
+const { bundle, isLoading, error, refetch } = useBundle(42, { initialData });
+```
+
+| Param | Type | Description |
+|---|---|---|
+| `id` | `number` | Bundle ID. |
+| `options.initialData` | `BundleDetail` | Pre-fetched data (e.g. from a server loader). Skips the initial client fetch. |
+
+Returns `{ bundle: BundleDetail \| null, isLoading, error, refetch }`.
+
+## `useBundleBuilder(bundle)`
+
+Wraps `createBundleBuilder` with React state. Tracks the customer's selection, section navigation and validity.
+
+```tsx
+const b = useBundleBuilder(bundle);
+
+b.addItem(sectionId, variantId, 1);
+b.updateQuantity(sectionId, variantId, 3);
+b.removeItem(sectionId, variantId);
+b.nextSection();
+```
+
+**State (read):**
+
+| Field | Type | Description |
+|---|---|---|
+| `selections` | `SectionSelections` | `Record<sectionId, BundleSelection[]>`. |
+| `currentSectionIndex` | `number` | Active section (0-based). |
+| `currentSection` | `BundleSection \| null` | Active section object. |
+| `isSectionValid` | `boolean` | Current section meets its min/max. |
+| `isValid` | `boolean` | All sections meet min/max. |
+| `isComplete` | `boolean` | Valid **and** all rules pass **and** required products present. |
+| `allItems` | `BundleSelection[]` | Flat list of all selections. |
+| `errors` | `ValidationError[]` | Limit-rule / required-product violations (empty when valid). |
+
+**Methods (write):** `addItem(sectionId, variantId, quantity?)`, `removeItem(sectionId, variantId)`, `updateQuantity(sectionId, variantId, quantity)`, `reset()`, `nextSection()`, `prevSection()`, `goToSection(index)`, `getSectionQuantity(sectionId)`.
+
+<Aside type="note" title="Required products aren't auto-added">
+`useBundleBuilder` does not auto-include a bundle's required products — that's intentional. Read `bundle.requiredProducts` and add them yourself if your UX calls for it. `isComplete` still checks they're present.
+</Aside>
+
+## `useBundlePrice(bundle, selections, options?)`
+
+Compute the price **locally** (no API call). Recomputes instantly as selections change and formats with the shop's money format.
+
+```tsx
+const price = useBundlePrice(bundle, builder.selections);
+// price.formattedDiscountedPrice → "$40.50"
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `originalPrice` | `string \| null` | Raw, e.g. `"45.00"`. |
+| `discountedPrice` | `string \| null` | Raw, e.g. `"40.50"`. |
+| `formattedOriginalPrice` | `string \| null` | e.g. `"$45.00"`. |
+| `formattedDiscountedPrice` | `string \| null` | e.g. `"$40.50"`. |
+| `discountType` | `string \| null` | `'percentage' \| 'fixed' \| 'price' \| null`. |
+| `discountValue` | `string \| null` | Discount amount. |
+| `currency` | `string \| null` | Currency label. |
+| `hasDiscount` | `boolean` | Whether a discount applies. |
+
+`options.currency` overrides the shop currency (defaults to `settings.currency` or `'USD'`). All fields are `null` when there are no selections.
+
+## `useBundleCart()`
+
+Submit a selection via `client.submitBundle`, tracking loading/error state.
+
+```tsx
+const { addBundleToCart, isLoading, error, lastResult } = useBundleCart();
+
+const result = await addBundleToCart(bundle, builder.selections, { countryCode: 'US' });
+// result: SubmitBundleResult { configuredBundleId, variantId, productId, discount, subscriptionId, pricing }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `addBundleToCart` | `(bundle, selections, { countryCode? }) => Promise<SubmitBundleResult>` | Validate + configure the bundle on the server. |
+| `isLoading` | `boolean` | Submission in flight. |
+| `error` | `Error \| null` | Submission error. |
+| `lastResult` | `SubmitBundleResult \| null` | Most recent result. |
+
+<Aside type="caution" title="This returns a result — it doesn't touch the cart">
+`useBundleCart().addBundleToCart` configures the bundle and returns cart data. To actually add it to the Shopify cart (lines + `_bundles` attribute), pass the result to the [`addBundleToCart` cart helper](/sdk/cart/).
+</Aside>

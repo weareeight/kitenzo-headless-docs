@@ -1,0 +1,185 @@
+---
+title: TypeScript types
+description: The core TypeScript types exported by the Kitenzo SDK.
+---
+
+These types are exported from `@kitenzo/core` (and re-exported from `@kitenzo/react`). Field names match the API responses.
+
+## Bundles
+
+```ts
+type BundleType = 'single-product' | 'multiple-products' | 'native';
+type BundlingOption = 'native' | 'custom';
+
+interface Bundle {
+  id: number;
+  name: string;
+  description: string;
+  imageUrl: string;
+  type: BundleType;
+  bundlingOption: BundlingOption;
+  published: boolean;
+}
+
+interface BundleDetail {
+  id: number;
+  name: string;
+  description: string;
+  imageUrl: string;
+  type: BundleType;
+  bundlingOption: BundlingOption;
+  layout?: string;
+  published: boolean;
+  sections: BundleSection[];
+  discount: BundleDiscount | null;
+  requiredProducts?: RequiredProduct[];
+  limitRules?: LimitRule[];
+  conditionsEngineEnabled?: boolean;
+}
+
+interface BundleSection {
+  id: number;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  order?: number;
+  minQuantity?: number;
+  maxQuantity?: number;
+  products: BundleProduct[];
+}
+
+interface BundleProduct {
+  id: string;
+  title: string;
+  handle: string;
+  image?: string;
+  variants: BundleVariant[];
+}
+
+interface BundleVariant {
+  id: string;
+  title: string;
+  price: string;        // "29.99"
+  available: boolean;
+  sku?: string;
+  inventoryQuantity?: number;
+  image?: string;
+}
+```
+
+## Discounts, rules & requirements
+
+```ts
+type DiscountType = 'percentage' | 'fixed' | 'price';
+type DiscountMode = 'flat' | 'tiered';
+type ComparisonOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
+type TierOperator = 'max' | 'cumulative';
+type TierConditionType = 'total_products' | 'bulk_buy' | 'total_price';
+type LimitRuleType =
+  | 'bundle-price'
+  | 'bundle-price-before-discount'
+  | 'total-number-of-products'
+  | 'amount-of-one-product'
+  | 'number-of-different-products';
+
+interface BundleDiscount {
+  type: DiscountType;
+  value: string | null;
+  flatOrTiered?: DiscountMode;
+  minimum?: string | null;
+  operator?: TierOperator;
+  tiers?: DiscountTier[];
+}
+
+interface DiscountTier {
+  type: TierConditionType;
+  value: string;
+  operation: ComparisonOperator;
+  discount: string;
+}
+
+interface RequiredProduct {
+  shopifyProductId: string;
+  variantIds: string[];
+  quantity: number;
+}
+
+interface LimitRule {
+  type: LimitRuleType;
+  operation: ComparisonOperator;
+  value: string;
+  sectionId: number | null;
+}
+```
+
+:::note[`multiples-of`]
+The backend also supports a `multiples-of` limit rule (see [Limit rules](/data/limit-rules/)). If your installed SDK's `LimitRuleType` union doesn't include it yet, treat the `type` field as a string for that rule.
+:::
+
+## Selections & builder
+
+```ts
+interface BundleSelection {
+  variantId: string;
+  quantity: number;
+}
+
+type SectionSelections = Record<number, BundleSelection[]>; // keyed by sectionId
+
+interface ValidationError {
+  type: string;     // e.g. 'limit-rule' | 'required-product'
+  message: string;
+}
+
+interface BundleBuilderSnapshot {
+  selections: SectionSelections;
+  currentSectionIndex: number;
+  currentSection: BundleSection | null;
+  isSectionValid: boolean;
+  isValid: boolean;
+  isComplete: boolean;
+  allItems: BundleSelection[];
+  errors: ValidationError[];
+}
+```
+
+## Pricing, cart & settings
+
+```ts
+interface PriceResponse {
+  originalPrice: string;
+  discountedPrice: string;
+  discountType: DiscountType | null;
+  discountValue: string | null;
+  currency: string;
+}
+
+interface SubmitBundleResult {
+  configuredBundleId: number;
+  variantId: string;
+  productId: string;
+  discount: string;
+  subscriptionId: string | null;
+  pricing: PriceResponse;
+}
+
+interface CartLineAttribute { key: string; value: string }
+interface CartLine {
+  merchandiseId: string;   // GID
+  quantity: number;
+  attributes: CartLineAttribute[];
+}
+interface CartPayload { lines: CartLine[]; attributes: CartLineAttribute[] }
+
+interface CartOperations {
+  addLines: (lines: CartLine[]) => void | Promise<void>;
+  getAttributes: () => CartLineAttribute[] | Promise<CartLineAttribute[]>;
+  setAttributes: (attributes: CartLineAttribute[]) => void | Promise<void>;
+}
+
+interface ShopSettings {
+  currency: string;
+  moneyFormat: string;     // "${{amount}}"
+  activeFeatures: string[];
+}
+```

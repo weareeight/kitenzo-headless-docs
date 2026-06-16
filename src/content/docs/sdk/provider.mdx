@@ -1,0 +1,89 @@
+---
+title: Provider & client
+description: KitenzoProvider, useKitenzo, useSettings, and the underlying KitenzoClient.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## `KitenzoProvider`
+
+Wrap your app once. It memoizes a `KitenzoClient`, auto-fetches shop settings, and makes both available to descendant hooks.
+
+```tsx
+import { KitenzoProvider } from '@kitenzo/react';
+
+function App() {
+  return (
+    <KitenzoProvider apiKey={import.meta.env.VITE_KITENZO_API_KEY}>
+      <Outlet />
+    </KitenzoProvider>
+  );
+}
+```
+
+### Props — `KitenzoProviderProps`
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `apiKey` | `string` | — *(required)* | Headless API key (`kit_live_…` / `kit_test_…`). |
+| `apiVersion` | `string` | `'v1'` | API version segment. |
+| `baseUrl` | `string` | `https://live.bb.eight-cdn.com/api/headless/v1` | Override the API base URL (e.g. for staging or local dev). When set, `apiVersion` is ignored. |
+| `children` | `ReactNode` | — | Your app. |
+
+<Aside type="note" title="Settings are fetched automatically">
+On mount the provider calls `getSettings()` and exposes the result via `useSettings()`. The fetch is best-effort — a network failure won't crash your app; `useSettings()` returns `null` until it resolves.
+</Aside>
+
+## `useKitenzo()`
+
+Returns the `KitenzoClient` from the nearest provider. Throws if used outside `<KitenzoProvider>`.
+
+```tsx
+const client = useKitenzo();
+const bundles = await client.listBundles();
+```
+
+## `useSettings()`
+
+Returns the shop's `ShopSettings` (`{ currency, moneyFormat, activeFeatures }`) or `null` while loading.
+
+```tsx
+const settings = useSettings();
+// settings?.moneyFormat → "${{amount}}"
+```
+
+## `KitenzoClient` (direct use)
+
+You don't need React to use the client — instantiate it anywhere (server loaders, scripts, other frameworks):
+
+```ts
+import { KitenzoClient } from '@kitenzo/core';
+
+const client = new KitenzoClient({
+  apiKey: 'kit_live_…',
+  // baseUrl: 'http://localhost:8123/api/headless/v1', // optional override
+});
+```
+
+### Constructor options — `KitenzoClientOptions`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `apiKey` | `string` | — *(required)* | Must start with `kit_live_` or `kit_test_`. |
+| `apiVersion` | `string` | `'v1'` | Must match `v\d+`. |
+| `baseUrl` | `string` | `https://live.bb.eight-cdn.com/api/headless/v1` | Full base URL override. |
+
+### Methods
+
+| Method | Signature | Returns | Description |
+|---|---|---|---|
+| `listBundles` | `listBundles()` | `Promise<Bundle[]>` | All published bundles (lightweight, no product data). |
+| `getBundle` | `getBundle(id: number)` | `Promise<BundleDetail>` | One bundle with sections, products and variants merged. |
+| `submitBundle` | `submitBundle(bundle, selections, { countryCode? })` | `Promise<SubmitBundleResult>` | Validate the selection and create a configured bundle; returns variant/product, discount, subscription and pricing. |
+| `getSettings` | `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format and active features. |
+
+Errors are thrown as `KitenzoError` (with `.status` and `.response`). See [TypeScript types](/reference/types/) for the return shapes.
+
+<Aside type="tip" title="getBundle merges two endpoints">
+`getBundle(id)` fetches the bundle config and its product/variant data in parallel and returns a single hydrated `BundleDetail`, so you don't have to call `/bundles/:id` and `/bundles/:id/products` yourself.
+</Aside>

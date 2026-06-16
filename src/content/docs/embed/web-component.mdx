@@ -1,0 +1,121 @@
+---
+title: Web component
+description: The <bundle-builder-bundle-v1> custom element — attributes, markup and usage.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `<bundle-builder-bundle-v1>` custom element renders a full bundle. Load the script and stylesheet, then place the element with your API key.
+
+## Markup
+
+```html
+<!-- Kitenzo storefront styles -->
+<link rel="stylesheet" href="https://live.bb.eight-cdn.com/bundle-builder-bundle.css" />
+
+<!-- Kitenzo storefront script -->
+<script src="https://live.bb.eight-cdn.com/bundle-builder-bundle.js" async type="module"></script>
+
+<!-- Render the bundle -->
+<bundle-builder-bundle-v1
+  id="42"
+  api-key="kit_live_your_api_key_here"
+  prefix="https://live.bb.eight-cdn.com/api/headless/v1/embed"
+  data='{"shop":{"domain":"your-store.myshopify.com","shopCurrency":"USD","cartCurrency":"USD","enabledCurrencies":["USD"],"moneyFormat":"${{amount}}"}}'
+>
+  <div class="bundle-builder-app--loading-spinner"><div></div></div>
+</bundle-builder-bundle-v1>
+```
+
+## Attributes
+
+| Attribute | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes* | Bundle ID to load. |
+| `handle` | `string` | Yes* | Shopify product handle (alternative to `id`). |
+| `api-key` | `string` | Yes** | Headless API key (`kit_live_…` / `kit_test_…`). |
+| `prefix` | `string` | No | API base URL. For headless, set to `https://live.bb.eight-cdn.com/api/headless/v1/embed`. |
+| `data` | `string` | No | JSON with `{ shop, settings, bundle }`. Bypasses the in-theme `#bundle-builder--shop` script tag and (when `bundle` is included) the API fetch. |
+| `full-page` | `"yes" \| "no"` | No | Whether to update the page title and canonical URL. |
+
+\* One of `id` or `handle` is required.
+\*\* Required for headless storefronts. Not needed in Liquid themes (which use the app proxy).
+
+<Aside type="note" title="The `data` attribute">
+Pass shop context (`domain`, currency, `moneyFormat`) via `data` so the component can format money correctly without an in-theme script tag. You can also pre-supply `bundle` to skip the initial API fetch (useful for SSR).
+</Aside>
+
+## React usage
+
+In React frameworks, load the assets in an effect and render the element (note: custom elements need the `@ts-expect-error` escape hatch in TSX):
+
+```tsx
+import { useEffect, useRef } from 'react';
+
+const KITENZO_APP_URL = 'https://live.bb.eight-cdn.com';
+
+function KitenzoBundleEmbed({ bundleId }: { bundleId: number }) {
+  const loaded = useRef(false);
+
+  const data = JSON.stringify({
+    shop: {
+      domain: import.meta.env.VITE_SHOP_DOMAIN,
+      shopCurrency: 'USD',
+      cartCurrency: 'USD',
+      enabledCurrencies: ['USD'],
+      moneyFormat: '${{amount}}',
+    },
+  });
+
+  useEffect(() => {
+    if (loaded.current) return;
+    loaded.current = true;
+
+    if (!document.querySelector('link[data-kitenzo-styles]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `${KITENZO_APP_URL}/bundle-builder-bundle.css`;
+      link.dataset.kitenzoStyles = 'true';
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('script[data-kitenzo-bundle]')) {
+      const script = document.createElement('script');
+      script.src = `${KITENZO_APP_URL}/bundle-builder-bundle.js`;
+      script.type = 'module';
+      script.async = true;
+      script.dataset.kitenzoBundle = 'true';
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  return (
+    // @ts-expect-error Custom element
+    <bundle-builder-bundle-v1
+      id={String(bundleId)}
+      api-key={import.meta.env.VITE_KITENZO_API_KEY}
+      prefix={`${KITENZO_APP_URL}/api/headless/v1/embed`}
+      data={data}
+    >
+      <div className="bundle-builder-app--loading-spinner"><div /></div>
+    </bundle-builder-bundle-v1>
+  );
+}
+```
+
+<Aside type="tip">
+Prefer not to manage script loading yourself? Use the [React `BundleEmbed`](/embed/react/) component or [`createBundleEmbed`](/embed/vanilla/) — both handle the script tag and cart interception.
+</Aside>
+
+## Styling
+
+The bundle renders with its admin-configured template styles. Override with CSS:
+
+```css
+.bundle-builder--wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.bundle-builder--theme-app-extension {
+  /* your overrides */
+}
+```

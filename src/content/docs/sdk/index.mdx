@@ -1,0 +1,58 @@
+---
+title: Mode 2 — SDK overview
+description: Build a fully custom bundle UI with @kitenzo/core and @kitenzo/react.
+---
+
+import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
+
+The SDK gives you the data and the logic to build your **own** bundle UI: fetch bundles, drive a builder state machine, compute prices locally, and produce a ready-to-use cart payload. Kitenzo handles validation, pricing and the cart contract; you own every pixel.
+
+## Two packages
+
+<CardGrid>
+  <Card title="@kitenzo/core" icon="seti:typescript">
+    Framework-agnostic. The `KitenzoClient`, the builder state machine (`createBundleBuilder`), local pricing (`calculatePrice`, `formatMoney`), cart helpers and all TypeScript types. Zero runtime dependencies.
+
+    [core reference →](/reference/core/)
+  </Card>
+  <Card title="@kitenzo/react" icon="seti:react">
+    Re-exports all of `core`, and adds `KitenzoProvider`, hooks (`useBundle`, `useBundleBuilder`, `useBundlePrice`, `useBundleCart`, …) and the `BundleEmbed` component.
+
+    [react reference →](/reference/react/)
+  </Card>
+</CardGrid>
+
+<Aside type="note" title="One install for React">
+`@kitenzo/react` depends on `@kitenzo/core`, so React consumers install **only** `@kitenzo/react` and import everything from it.
+</Aside>
+
+## Install
+
+```bash
+# React storefronts
+npm install @kitenzo/react
+
+# Non-React (vanilla, Vue, Svelte, server scripts)
+npm install @kitenzo/core
+```
+
+Both packages are version **0.2.6** and published publicly to npm. `@kitenzo/react` peer-depends on `react >= 18` and `react-dom >= 18` (optional `@shopify/hydrogen-react >= 2024.0.0`).
+
+## The shape of a custom build
+
+<CardGrid>
+  <Card title="1. Provide the client" icon="setting">
+    Wrap your app in [`<KitenzoProvider apiKey>`](/sdk/provider/) (or `new KitenzoClient()` directly).
+  </Card>
+  <Card title="2. Fetch + build" icon="open-book">
+    [`useBundle`](/sdk/hooks/) loads the bundle; [`useBundleBuilder`](/sdk/hooks/) tracks the customer's selection and validity.
+  </Card>
+  <Card title="3. Price locally" icon="approve-check">
+    [`useBundlePrice`](/sdk/hooks/) computes the discounted price instantly as selections change — no API call.
+  </Card>
+  <Card title="4. Add to cart" icon="cloud-download">
+    [`useBundleCart`](/sdk/hooks/) submits the selection; [`addBundleToCart`](/sdk/cart/) writes lines + `_bundles` to Shopify.
+  </Card>
+</CardGrid>
+
+<LinkCard title="Quickstart: SDK mode" description="A working bundle page in a few steps." href="/getting-started/quickstart/" />

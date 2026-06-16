@@ -1,0 +1,62 @@
+---
+title: API reference
+description: The Kitenzo Headless REST API — base URL, conventions and the full endpoint list.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import Endpoint from '../../../components/Endpoint.astro';
+
+The headless API is a small REST API over your published bundles. Every endpoint requires a Bearer API key and lives under one base URL.
+
+## Base URL
+
+```text
+https://live.bb.eight-cdn.com/api/headless/v1
+```
+
+The SDK uses this by default; override with `baseUrl` for staging or local dev.
+
+## Conventions
+
+- **Auth:** `Authorization: Bearer kit_live_…` on every request. See [Authentication](/api/authentication/).
+- **Content type:** `application/json` for request and response bodies.
+- **IDs:** bundle and section IDs are integers; product/variant IDs are returned both as numeric strings and as Shopify **GIDs** (`gid://shopify/ProductVariant/123`).
+- **Money:** prices are strings formatted to two decimals (e.g. `"29.99"`).
+- **Rate limit:** 100 requests/minute per key by default. See [Rate limits](/api/rate-limits/).
+
+## Endpoints at a glance
+
+<Endpoint method="GET" path="/bundles" />
+List published bundles.
+
+<Endpoint method="GET" path="/bundles/:id" />
+Full bundle configuration (sections, discount, rules, required products).
+
+<Endpoint method="GET" path="/bundles/:id/products" />
+Product and variant data (price, SKU, availability, inventory).
+
+<Endpoint method="POST" path="/bundles/:id/configure" />
+Validate a selection, create a configured bundle, return cart data.
+
+<Endpoint method="POST" path="/bundles/:id/price" />
+Calculate pricing for a selection (no configuration created).
+
+<Endpoint method="GET" path="/settings" />
+Shop settings (currency, money format, active features).
+
+<Aside type="note" title="Embed sub-API">
+The `<bundle-builder-bundle-v1>` web component uses a separate set of proxy-shaped endpoints under `/api/headless/v1/embed/api/v1/…`. You normally won't call these directly. See [Embed sub-API](/api/embed-api/).
+</Aside>
+
+<CardGrid>
+  <Card title="Full endpoint reference" icon="seti:json">
+    Request bodies, query params and exact response shapes for every endpoint.
+
+    [Endpoints →](/api/endpoints/)
+  </Card>
+  <Card title="Errors" icon="warning">
+    Status codes and error body shapes for 400 / 403 / 404 / 429.
+
+    [Errors →](/api/errors/)
+  </Card>
+</CardGrid>

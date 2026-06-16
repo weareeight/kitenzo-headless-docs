@@ -1,0 +1,41 @@
+---
+title: Conditions & subscriptions
+description: The conditions-engine signal and subscription support exposed via headless.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Conditions engine
+
+Some bundles use Kitenzo's **conditions engine** — a visual rules graph that controls conditional free items (e.g. "add a free gift when the cart total exceeds $50"). Headless exposes a single boolean:
+
+```json
+{ "conditionsEngineEnabled": true }
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `conditionsEngineEnabled` | `boolean` | The bundle has conditional free-item logic. |
+
+<Aside type="caution" title="It's a signal, not an evaluator">
+The headless API does **not** execute the conditions engine. `conditionsEngineEnabled` only tells you the bundle has conditional logic. If you build a custom UI for such a bundle and need the conditional free items, evaluate them client-side. For full parity with no extra work, use [Embed mode](/embed/) — the prebuilt UI evaluates conditions for you.
+</Aside>
+
+## Subscriptions
+
+Bundles can support recurring subscriptions (disabled, optional, or required, depending on the merchant's configuration). Subscription behavior surfaces through the **configure** response:
+
+```json
+{
+  "configured_bundle_id": 9876,
+  "subscription_id": null
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `subscription_id` | `number \| null` | Set when a valid recurring subscription option was chosen at configure time; otherwise `null`. |
+
+<Aside type="note" title="Subscription details aren't in the bundle detail">
+`GET /bundles/:id` doesn't expose subscription frequency options or plan details. Subscription selection is resolved at **configure** time, and the resulting `subscription_id` links the configured bundle to its recurring arrangement. If you need full subscription UI in a custom build, contact [support@kitenzo.com](mailto:support@kitenzo.com) to discuss your use case — and consider [Embed mode](/embed/), which handles it.
+</Aside>

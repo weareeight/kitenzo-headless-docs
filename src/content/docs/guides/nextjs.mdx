@@ -1,0 +1,75 @@
+---
+title: Next.js
+description: Use Kitenzo bundles in a Next.js storefront with server fetching and your own cart.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Next.js works well with the SDK: fetch bundle data on the server (App Router server components or route handlers), render with hooks on the client, and add to cart with your Storefront API client of choice.
+
+<Steps>
+
+1. **Install.**
+
+   ```bash
+   npm install @kitenzo/react
+   ```
+
+2. **Fetch on the server** (App Router server component or route handler). Keep the key in a server-only env var:
+
+   ```tsx
+   import { KitenzoClient } from '@kitenzo/react';
+
+   async function getBundle(id: number) {
+     const client = new KitenzoClient({ apiKey: process.env.KITENZO_API_KEY! });
+     return client.getBundle(id);
+   }
+
+   export default async function Page({ params }: { params: { id: string } }) {
+     const bundle = await getBundle(Number(params.id));
+     return <BundleClient initialData={bundle} />;
+   }
+   ```
+
+3. **Render on the client** with the provider and hooks:
+
+   ```tsx
+   'use client';
+   import { KitenzoProvider, useBundle, useBundleBuilder, useBundlePrice } from '@kitenzo/react';
+
+   export default function BundleClient({ initialData }) {
+     return (
+       <KitenzoProvider apiKey={process.env.NEXT_PUBLIC_KITENZO_API_KEY!}>
+         <Inner initialData={initialData} />
+       </KitenzoProvider>
+     );
+   }
+
+   function Inner({ initialData }) {
+     const { bundle } = useBundle(initialData.id, { initialData });
+     const builder = useBundleBuilder(bundle);
+     const price = useBundlePrice(bundle, builder.selections);
+     // render your UI…
+   }
+   ```
+
+4. **Add to cart** using your Storefront API integration. Use the SDK cart helpers to produce lines + attributes:
+
+   ```ts
+   import { useBundleCart, buildCartPayload } from '@kitenzo/react';
+
+   const { addBundleToCart: configure } = useBundleCart();
+   const result = await configure(bundle, builder.selections);
+   const { lines, attributes } = buildCartPayload(result, currentCartAttributes);
+   // pass `lines` + `attributes` to your cartLinesAdd / cartAttributesUpdate calls
+   ```
+
+</Steps>
+
+<Aside type="caution" title="Env var prefixes">
+A key exposed to the browser must be prefixed `NEXT_PUBLIC_` — scope it with [allowed origins](/getting-started/cors/). Prefer fetching server-side with a non-public `KITENZO_API_KEY` where you can.
+</Aside>
+
+<Aside type="note" title="Cart attributes carry the discount">
+Whatever Storefront client you use, make sure native-bundle lines keep their `_bundle_data` attributes and the cart gets the `_bundles` attribute. `buildCartPayload` produces both. See [Cart & discount application](/guides/cart-discounts/).
+</Aside>

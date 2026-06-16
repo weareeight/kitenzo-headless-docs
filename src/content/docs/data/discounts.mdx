@@ -1,0 +1,80 @@
+---
+title: Discounts
+description: The full discount model — flat and tiered, types, thresholds, operators and minimums.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A bundle's `discount` object (on `GET /bundles/:id`) describes how the bundle is discounted. It can be `null` (no discount), a **flat** discount, or a **tiered** discount.
+
+## Discount object
+
+```json
+{
+  "type": "percentage",
+  "value": "10.00",
+  "flatOrTiered": "flat",
+  "minimum": null,
+  "operator": null,
+  "tiers": []
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `string` | `percentage` \| `fixed` \| `price`. |
+| `value` | `string \| null` | The discount value for a flat discount. |
+| `flatOrTiered` | `string` | `flat` or `tiered`. |
+| `minimum` | `string \| null` | Minimum bundle price for the discount to apply. |
+| `operator` | `string \| null` | `max` or `cumulative` (how tiers combine). |
+| `tiers` | `array` | Present for tiered discounts. |
+
+## Discount types
+
+| `type` | Meaning | Example |
+|---|---|---|
+| `percentage` | Percent off | `10.00` → 10% off |
+| `fixed` | Fixed amount off | `5.00` → $5 off |
+| `price` | Fixed final price for the bundle | `99.00` → bundle costs $99 |
+
+## Flat discounts
+
+`flatOrTiered: "flat"` applies a single `value` of the given `type` to the whole bundle. `minimum`, if set, gates the discount on the bundle's price.
+
+## Tiered discounts
+
+`flatOrTiered: "tiered"` activates different discount levels based on the customer's selection. Each entry in `tiers[]`:
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `string` | The condition: `total_products` \| `bulk_buy` \| `total_price`. |
+| `value` | `string` | The threshold to compare against. |
+| `operation` | `string` | `gt` \| `gte` \| `lt` \| `lte` \| `eq`. |
+| `discount` | `string` | The discount amount/percentage for this tier. |
+
+**Tier condition types**
+
+- `total_products` — based on the total number of products in the bundle.
+- `bulk_buy` — based on the highest quantity of any single product.
+- `total_price` — based on the bundle's total price before discount.
+
+**Operator** (how tiers combine):
+
+- `max` — apply the single highest matching tier.
+- `cumulative` — sum all matching tiers.
+
+```json
+{
+  "type": "percentage",
+  "flatOrTiered": "tiered",
+  "operator": "max",
+  "tiers": [
+    { "type": "total_products", "value": "3", "operation": "gte", "discount": "10.00" },
+    { "type": "total_products", "value": "5", "operation": "gte", "discount": "15.00" }
+  ]
+}
+```
+
+<Aside type="tip" title="You don't have to implement the math">
+The SDK's `calculatePrice` (and `useBundlePrice`) implements all of this — flat and tiered, every operation and both operator modes — client-side, so your UI can show a live discounted price without a request. The authoritative price at checkout is still produced by the Shopify cart transform.
+</Aside>

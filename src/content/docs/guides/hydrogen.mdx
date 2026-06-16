@@ -1,0 +1,82 @@
+---
+title: Shopify Hydrogen
+description: Add a Kitenzo bundle to a Hydrogen storefront with the SDK and the Storefront cart.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Hydrogen pairs naturally with Kitenzo: fetch bundle data in a loader, build the UI with hooks, and add to the cart with Hydrogen's `useCart`.
+
+<Steps>
+
+1. **Install the SDK.**
+
+   ```bash
+   npm install @kitenzo/react
+   ```
+
+2. **Add the provider** in your root layout (client side), or skip it and use `KitenzoClient` directly in loaders.
+
+   ```tsx
+   import { KitenzoProvider } from '@kitenzo/react';
+
+   export default function App() {
+     return (
+       <KitenzoProvider apiKey={/* see step 3 */}>
+         <Outlet />
+       </KitenzoProvider>
+     );
+   }
+   ```
+
+3. **Fetch the bundle in a loader** (keeps the key server-side):
+
+   ```tsx
+   import { KitenzoClient } from '@kitenzo/react';
+
+   export async function loader({ params, context }: LoaderFunctionArgs) {
+     const client = new KitenzoClient({ apiKey: context.env.KITENZO_API_KEY });
+     return { bundle: await client.getBundle(Number(params.id)) };
+   }
+   ```
+
+4. **Build the UI and add to cart** with `useCart`:
+
+   ```tsx
+   import { useLoaderData } from '@remix-run/react';
+   import { useCart } from '@shopify/hydrogen-react';
+   import {
+     useBundle, useBundleBuilder, useBundlePrice, useBundleCart, addBundleToCart,
+   } from '@kitenzo/react';
+
+   export default function BundleRoute() {
+     const { bundle: initialData } = useLoaderData<typeof loader>();
+     const { bundle } = useBundle(initialData.id, { initialData });
+     const builder = useBundleBuilder(bundle);
+     const price = useBundlePrice(bundle, builder.selections);
+     const { addBundleToCart: configure } = useBundleCart();
+     const cart = useCart();
+
+     async function onAdd() {
+       const result = await configure(bundle, builder.selections);
+       await addBundleToCart(result, {
+         addLines: (lines) => cart.linesAdd(lines),
+         getAttributes: () => cart.attributes ?? [],
+         setAttributes: (attrs) => cart.cartAttributesUpdate(attrs),
+       });
+     }
+
+     // render bundle.sections + builder, show price.formattedDiscountedPrice,
+     // disable the add button until builder.isComplete, then call onAdd()
+   }
+   ```
+
+</Steps>
+
+<Aside type="caution" title="Don't forget the `_bundles` attribute">
+`addBundleToCart` writes the `_bundles` cart attribute automatically for native bundles. If you build cart lines by hand, you must write it yourself — see [Cart & discount application](/guides/cart-discounts/).
+</Aside>
+
+<Aside type="tip" title="Prefer the prebuilt UI?">
+If you don't need a custom design, embed the full UI instead — see [React BundleEmbed](/embed/react/). It works the same in Hydrogen.
+</Aside>

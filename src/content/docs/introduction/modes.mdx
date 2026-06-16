@@ -1,0 +1,46 @@
+---
+title: Integration modes
+description: Choose between embedding the full Kitenzo UI or building a custom UI with the SDK.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+There are two ways to put a Kitenzo bundle into a headless storefront. They share the same API and the same API key — pick based on how much control you want over the UI.
+
+<CardGrid>
+  <Card title="Mode 1 — Embed the full UI" icon="puzzle">
+    Render the admin-configured bundle template with the `<bundle-builder-bundle-v1>` web component (or the React `BundleEmbed` wrapper, or `createBundleEmbed` for vanilla JS).
+
+    **Best for:** stores that want the exact same experience as a Liquid theme — templates, conditions, limit rules, tiered discounts and visual customizations — with zero UI code.
+
+    [Read the Embed guide →](/embed/)
+  </Card>
+  <Card title="Mode 2 — Build a custom UI" icon="seti:typescript">
+    Use `@kitenzo/core` / `@kitenzo/react` hooks to fetch bundle data and drive a builder state machine. You render every pixel; the SDK handles validation, local pricing and the cart payload.
+
+    **Best for:** stores that need a fully custom design that matches their headless storefront.
+
+    [Read the SDK guide →](/sdk/)
+  </Card>
+</CardGrid>
+
+## Side by side
+
+| | Mode 1 — Embed | Mode 2 — SDK |
+|---|---|---|
+| UI | Admin-configured template (prebuilt) | You build it |
+| Packages | None required (or `@kitenzo/react` for `BundleEmbed`) | `@kitenzo/core` + `@kitenzo/react` |
+| API surface used | Embed sub-API (`/embed/api/v1/…`) | Headless API (`/bundles`, `/configure`, …) |
+| Conditions engine | Evaluated by the bundle UI | You evaluate client-side if needed |
+| Cart integration | Intercept `kitenzo:addtocart`, write `_bundles` | `addBundleToCart()` / `buildCartPayload()` |
+| Styling | Override the template's CSS | Entirely your own |
+
+<Aside type="tip">
+You can mix modes across pages — e.g. embed the full UI on a landing page and build a bespoke configurator elsewhere — using the same API key.
+</Aside>
+
+## What's the same in both modes
+
+- **Authentication** — a Bearer API key (`kit_live_…` / `kit_test_…`).
+- **Discounting** — the Shopify cart transform applies the discount at checkout as long as the `_bundles` cart attribute is set for native bundles. See [Cart & discount application](/guides/cart-discounts/).
+- **No proxy** — both talk directly to the Kitenzo API; CORS is handled per key.

@@ -1,0 +1,76 @@
+---
+title: Vanilla — createBundleEmbed
+description: Mount the full bundle UI programmatically from @kitenzo/core, no framework required.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`createBundleEmbed` (from `@kitenzo/core`) renders the full admin-configured bundle UI into a container element and handles script loading, settings fetching and add-to-cart interception. Use it in plain JS or any non-React framework.
+
+## Usage
+
+```ts
+import { createBundleEmbed } from '@kitenzo/core';
+
+const embed = createBundleEmbed(document.getElementById('bundle-root')!, {
+  bundleId: 42,
+  apiKey: 'kit_live_…',
+  shopDomain: 'my-store.myshopify.com',
+  onAddToCart: ({ lines, bundleContent }) => {
+    // 1. Add cart lines via the Storefront API
+    cart.linesAdd(lines);
+
+    // 2. For native bundles, write the `_bundles` cart attribute
+    if (bundleContent) {
+      const existing = JSON.parse(
+        cart.attributes?.find((a) => a.key === '_bundles')?.value ?? '{}'
+      );
+      existing[bundleContent.configuredBundleId] = bundleContent;
+      cart.cartAttributesUpdate([
+        ...(cart.attributes ?? []).filter((a) => a.key !== '_bundles'),
+        { key: '_bundles', value: JSON.stringify(existing) },
+      ]);
+    }
+  },
+});
+
+// Later, to tear it down:
+embed.destroy();
+```
+
+## Options — `BundleEmbedOptions`
+
+| Option | Type | Required | Description |
+|---|---|---|---|
+| `bundleId` | `number` | Yes | Bundle to display. |
+| `apiKey` | `string` | Yes | Headless API key. |
+| `shopDomain` | `string` | Yes | Your `myshopify.com` domain. |
+| `onAddToCart` | `(payload: EmbedCartPayload) => void` | Yes | Called when the customer adds to cart. |
+| `onError` | `(error: Error) => void` | No | Called on script/settings load failure. |
+| `baseUrl` | `string` | No | Override the API base URL. |
+| `scriptUrl` | `string` | No | Override the storefront script URL (derived from `baseUrl` by default). |
+
+Returns a `BundleEmbedInstance` with a single method: **`destroy()`** — removes the embed from the DOM and cleans up listeners.
+
+## Payload types
+
+```ts
+interface EmbedCartPayload {
+  lines: CartLine[];
+  bundleContent?: BundleContentPayload; // native bundles only
+}
+
+interface BundleContentPayload {
+  id: number;
+  configuredBundleId: number;
+  title: string;
+  discount: string;          // encrypted discount string for the cart transform
+  image: string | null;
+  note?: { text: string; label: string };
+  items: Array<{ variantId: number; count: number }>;
+}
+```
+
+<Aside type="caution" title="Only one embed per page">
+`createBundleEmbed` mounts a single `<bundle-builder-bundle-v1>` element. Don't run more than one per page.
+</Aside>

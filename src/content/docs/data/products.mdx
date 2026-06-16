@@ -1,0 +1,70 @@
+---
+title: Sections, products & variants
+description: The structure of bundle sections and the product/variant data you can read.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Sections
+
+A bundle is organized into **sections** — the groups a customer picks from. Sections come from `GET /bundles/:id`:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `number` | Section ID. |
+| `name` | `string` | Section title (e.g. "Choose a shirt"). |
+| `description` | `string` | Optional description. |
+| `imageUrl` | `string` | Optional section image. |
+| `order` | `number` | Display order. |
+| `products[]` | `array` | Allowed items in this section. |
+
+Each entry in `products[]` references a product (and optionally specific variants) allowed in that section:
+
+| Field | Type | Description |
+|---|---|---|
+| `bundleItemId` | `number` | The bundle-item ID. |
+| `shopifyProductId` | `string` | Shopify product ID. |
+| `variantIds` | `string[]` | Allowed variant IDs. **Empty = all variants allowed.** |
+
+<Aside type="note" title="Section quantities">
+Sections can carry min/max quantity constraints. The SDK surfaces these as `minQuantity` / `maxQuantity` on a section and enforces them in the builder (a section with neither defaults to requiring at least one item).
+</Aside>
+
+## Products & variants
+
+Full product and variant detail comes from `GET /bundles/:id/products` (the SDK merges it into `getBundle()`):
+
+**Product**
+
+| Field | Type | Description |
+|---|---|---|
+| `shopifyProductId` | `string` | Numeric ID. |
+| `shopifyProductGid` | `string` | `gid://shopify/Product/<id>`. |
+| `title` | `string` | Product title. |
+| `handle` | `string` | URL handle. |
+| `imageUrl` | `string` | Product image (may be empty). |
+| `variants[]` | `array` | The product's variants. |
+
+**Variant**
+
+| Field | Type | Description |
+|---|---|---|
+| `shopifyVariantId` | `string` | Numeric ID. |
+| `shopifyVariantGid` | `string` | `gid://shopify/ProductVariant/<id>`. |
+| `title` | `string` | Variant title (e.g. "Small / Black"). |
+| `price` | `string` | Price formatted to 2 decimals, e.g. `"29.99"`. |
+| `sku` | `string` | SKU (empty string if none). |
+| `available` | `boolean` | Whether it can be purchased (see below). |
+| `inventoryQuantity` | `number` | Current inventory quantity. |
+
+## Availability logic
+
+`available` is computed as:
+
+1. **`true`** if inventory is **not** managed by Shopify for the variant; **or**
+2. **`true`** if the inventory policy is `continue` (oversell allowed); **otherwise**
+3. **`inventoryQuantity > 0`**.
+
+<Aside type="tip" title="Use GIDs for the cart">
+Add to the Shopify cart with the `…Gid` fields (`gid://shopify/ProductVariant/…`). The numeric IDs are handy for matching against your own data or the bundle's `variantIds`.
+</Aside>

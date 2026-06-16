@@ -1,0 +1,68 @@
+---
+title: Create an API key
+description: How to create, scope, copy and revoke headless API keys in the Kitenzo admin.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Every headless request authenticates with a key created in **Settings → Headless**. Keys are scoped to your shop and carry a name, optional allowed origins, and a rate limit.
+
+## Create a key
+
+<Steps>
+
+1. In the Kitenzo admin, open **Settings → Headless**.
+
+2. Click **Create API key**.
+
+3. Fill in the fields:
+   - **Key name** *(required)* — a descriptive label, e.g. `Production storefront`.
+   - **Allowed origins** *(optional)* — a comma-separated list of origins allowed to call the API from the browser, e.g. `https://mystore.com, https://staging.mystore.com`. **Leave empty to allow all origins.**
+
+4. Click **Create API key**. The full key is shown **once** in a banner — copy it immediately. Only a hash is stored, so it can't be recovered later.
+
+</Steps>
+
+<Aside type="caution" title="Copy it now">
+The raw key is displayed only at creation time ("Copy it now — it will not be shown again"). If you lose it, delete the key and create a new one.
+</Aside>
+
+## Key format
+
+```
+kit_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   ← live key
+kit_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   ← test key
+```
+
+Keys are a prefix (`kit_live_` / `kit_test_`) plus a 43-character random token. The admin shows only the first 12 characters (`key_prefix`) after creation.
+
+<Aside type="note" title="Test vs live keys">
+The data model distinguishes test (`kit_test_`) and live (`kit_live_`) keys. The current admin UI creates **live** keys; if you need a test key, ask support. Both authenticate the same endpoints and are rate-limited independently.
+</Aside>
+
+## Manage keys
+
+The keys table shows, per key: **name**, **key prefix**, **allowed origins** (or "All origins"), **status** (Active / Inactive, plus a Test badge), **created** date and **last used** date.
+
+- **Revoke a key** — click **Delete**. This deactivates it (`is_active = false`); any integration using it stops working immediately. There's no undo — create a new key if needed.
+- **Editing** — allowed origins can't be edited after creation. To change them, delete the key and create a new one.
+
+## Use the key
+
+Send it as a Bearer token on every request:
+
+```bash
+curl https://live.bb.eight-cdn.com/api/headless/v1/bundles \
+  -H "Authorization: Bearer kit_live_…"
+```
+
+Or pass it to the SDK:
+
+```ts
+import { KitenzoClient } from '@kitenzo/core';
+const client = new KitenzoClient({ apiKey: 'kit_live_…' });
+```
+
+<Aside type="caution" title="Keep live keys server-side where you can">
+A headless API key grants read access to your published bundles and the ability to create configurations. In the browser, scope keys with **allowed origins**. For SSR/loaders, keep the key in server-only environment variables. See [CORS & allowed origins](/getting-started/cors/).
+</Aside>

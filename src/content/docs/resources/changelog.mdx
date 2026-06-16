@@ -1,0 +1,37 @@
+---
+title: Versioning & changelog
+description: API and SDK versioning, and notable changes to Kitenzo Headless.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## API versioning
+
+The REST API is versioned in the path: `/api/headless/v1/`. Breaking changes would ship under a new version segment (`/v2/`); additive changes (new fields, new endpoints) can appear within `v1`.
+
+## SDK versioning
+
+`@kitenzo/core` and `@kitenzo/react` are versioned together and published to npm. Pin a range you're comfortable with:
+
+```json
+{
+  "dependencies": {
+    "@kitenzo/react": "^0.2.6"
+  }
+}
+```
+
+Current published version: **0.2.6** (both packages).
+
+<Aside type="note" title="Pre-1.0">
+The SDK is pre-1.0. Minor versions may include changes — pin a version and review release notes before upgrading. The REST API surface under `/v1` is the stable contract.
+</Aside>
+
+## Notable changes
+
+- **0.2.6** — SDK split into `@kitenzo/core` (framework-agnostic) and `@kitenzo/react` (provider, hooks, `BundleEmbed`); added the bundle embed component for Mode 1.
+- **Headless API** — REST endpoints for listing/reading bundles, configuring selections and pricing, with per-key Bearer auth, CORS and rate limiting.
+
+<Aside type="tip" title="Heads-up on docs accuracy">
+These docs are generated from, and verified against, the Kitenzo codebase. If something here doesn't match the behavior you see, tell us at [support@kitenzo.com](mailto:support@kitenzo.com) — the source of truth is the API and the published packages.
+</Aside>

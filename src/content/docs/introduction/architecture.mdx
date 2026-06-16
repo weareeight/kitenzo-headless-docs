@@ -1,0 +1,53 @@
+---
+title: Architecture
+description: How requests flow between your storefront, the Kitenzo API and Shopify.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Kitenzo Headless sits between your storefront and two backends: the **Kitenzo API** (bundle data, validation, pricing) and the **Shopify Storefront API** (the cart and checkout). Kitenzo never owns the cart — it returns cart lines and attributes that *you* apply through Shopify.
+
+## Mode 2 — SDK flow
+
+```
+Your storefront (Hydrogen / Next.js / custom)
+  │
+  ├─ 1. Read bundles ───────────────► Kitenzo API
+  │      GET /bundles, /bundles/:id, /bundles/:id/products
+  │
+  ├─ 2. Validate + configure ───────► Kitenzo API
+  │      POST /bundles/:id/configure  → cart lines + discount + pricing
+  │
+  └─ 3. Add to cart ────────────────► Shopify Storefront API
+         cartLinesAdd(...) + set the `_bundles` cart attribute
+                                        │
+                                        ▼
+                              Shopify checkout
+                              Cart transform applies the discount
+```
+
+## Mode 1 — Embed flow
+
+```
+Browser
+  │
+  ├─ <bundle-builder-bundle-v1 api-key="kit_live_…" prefix="…/embed">
+  │     │
+  │     └─ GET …/api/headless/v1/embed/api/v1/bundle?id=42   (Bearer auth, CORS)
+  │
+  └─ on add-to-cart → `kitenzo:addtocart` event
+        → you call Shopify Storefront API + write `_bundles`
+                                        │
+                                        ▼
+                              Shopify checkout (cart transform)
+```
+
+## Key principles
+
+- **Kitenzo is not a product-data proxy for the cart.** It returns Shopify product/variant **GIDs** and live pricing for *building* the bundle; cart mutations and checkout happen against Shopify directly.
+- **Discounts are applied at checkout by the cart transform**, not by Kitenzo at request time. Your job is to attach the right cart data (`_bundles` / `_bundle_data`) so the transform can match lines to a bundle. See [Cart & discount application](/guides/cart-discounts/).
+- **CORS is per-API-key.** The Kitenzo backend sets CORS headers based on the key's allowed origins, so the browser can call the API directly — no server-side proxy required.
+
+<Aside type="caution" title="Native bundles need cart attributes">
+For **native** bundles, the discount only applies if your add-to-cart handler writes the `_bundles` cart attribute (and each line carries `_bundle_data`). Single- and multiple-product bundles bake the discount into the variant price, so they don't need it.
+</Aside>

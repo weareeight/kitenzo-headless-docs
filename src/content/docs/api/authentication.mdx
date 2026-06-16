@@ -1,0 +1,57 @@
+---
+title: Authentication
+description: Bearer API keys — format, how they're stored, and how to send them.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every request authenticates with a **headless API key** sent as a Bearer token.
+
+```http
+GET /api/headless/v1/bundles HTTP/1.1
+Host: live.bb.eight-cdn.com
+Authorization: Bearer kit_live_abc123…
+```
+
+## Key format
+
+| Prefix | Meaning |
+|---|---|
+| `kit_live_` | Live key |
+| `kit_test_` | Test key |
+
+A key is the prefix plus a 43-character URL-safe random token. Keys are created in **Settings → Headless** — see [Create an API key](/getting-started/api-keys/).
+
+## How keys are stored
+
+- Only a **SHA-256 hash** of the key is stored. The raw value is shown once at creation and can't be recovered.
+- The admin stores and displays a 12-character **prefix** for identification.
+- Each key records a `last_used_at` timestamp (updated at most once every 5 minutes).
+
+## What a key carries
+
+| Property | Description |
+|---|---|
+| `shop` | The shop the key belongs to. Keys are shop-scoped. |
+| `allowed_origins` | Origins permitted for browser (CORS) requests. Empty = all. |
+| `rate_limit` | Requests/minute (default 100). |
+| `is_active` | Revoked keys (`false`) are rejected. |
+| `is_test` | Whether it's a test key. |
+
+## Requirements for a valid request
+
+A request authenticates only if **all** of these hold:
+
+1. The `Authorization: Bearer <key>` header is present and the key hash matches an **active** key.
+2. The key's shop has the **Headless feature enabled** (`headless_api`).
+3. The shop has a valid Shopify access token.
+
+If any fails, the API responds **`403 Forbidden`**.
+
+<Aside type="caution" title="403 with no body">
+Auth and permission failures return a bare HTTP **403** (no JSON body). If you get a 403, check: the key is correct and active, the origin is allowed (browser), and Headless is enabled for the shop. See [Errors](/api/errors/).
+</Aside>
+
+## Revoking a key
+
+Delete a key in **Settings → Headless** to set `is_active = false`. The key is rejected immediately on the next request. Keys have **no expiry** — they're valid until revoked.

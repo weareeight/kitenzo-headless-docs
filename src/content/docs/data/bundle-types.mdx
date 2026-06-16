@@ -1,0 +1,40 @@
+---
+title: Bundle types
+description: single-product, multiple-products and native — what each means for headless.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every bundle has a `type` that determines how it maps to Shopify products and how the discount is applied. The API returns it as a string on every bundle.
+
+| `type` | Maps to Shopify as | Discount applied via |
+|---|---|---|
+| `single-product` | Variants of **one** product | Baked into the variant price |
+| `multiple-products` | A dedicated Shopify product representing the bundle | Baked into the variant price |
+| `native` | **No** distinct Shopify product — config lives in cart attributes | Cart transform reads `_bundles` at checkout |
+
+## `single-product`
+
+A bundle whose options are variants of a single Shopify product. Shows in the Shopify admin as one product. The discounted price is already in the variant you add to cart.
+
+- **Cart:** add the configured variant. No `_bundles` attribute needed.
+
+## `multiple-products`
+
+A bundle that draws variants from several products. Kitenzo creates a separate Shopify product to represent the bundle itself. The discount is baked into that product's variant price.
+
+- **Cart:** add the configured variant. No `_bundles` attribute needed.
+
+## `native`
+
+A headless-style bundle with **no** distinct Shopify product. Each selected variant becomes its own cart line, and the configuration is stored in cart attributes. The **cart transform** applies the discount at checkout.
+
+- **Cart:** add one line per variant (each with `_bundle_data`) **and** write the `_bundles` cart attribute. See [Cart & discount application](/guides/cart-discounts/).
+
+<Aside type="caution" title="The cart contract differs by type">
+This is the single most important thing to get right headlessly: **native bundles require the `_bundles` cart attribute** for the discount to apply; `single-product` and `multiple-products` bundles do not (their discount is in the variant price). The SDK's `buildCartPayload` / `addBundleToCart` handle this automatically based on the bundle type.
+</Aside>
+
+## `bundlingOption`
+
+Separately from `type`, each bundle has a `bundlingOption` of `bundles` or `upsells`, indicating how the offer is presented. It's returned on the bundle for completeness.

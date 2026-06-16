@@ -1,0 +1,68 @@
+---
+// Dark sitemap footer used as secondary navigation on the landing page.
+import logo from '../assets/logo.png';
+
+const cols = [
+  {
+    title: 'Get started',
+    links: [
+      { label: 'Overview', href: '/introduction/' },
+      { label: 'Get access', href: '/getting-started/access/' },
+      { label: 'Create an API key', href: '/getting-started/api-keys/' },
+      { label: 'Quickstart', href: '/getting-started/quickstart/' },
+    ],
+  },
+  {
+    title: 'Integrate',
+    links: [
+      { label: 'Mode 1 — Embed', href: '/embed/' },
+      { label: 'Mode 2 — SDK', href: '/sdk/' },
+      { label: 'Hooks', href: '/sdk/hooks/' },
+      { label: 'Cart & discounts', href: '/guides/cart-discounts/' },
+    ],
+  },
+  {
+    title: 'Reference',
+    links: [
+      { label: 'API reference', href: '/api/' },
+      { label: 'Endpoints', href: '/api/endpoints/' },
+      { label: '@kitenzo/core', href: '/reference/core/' },
+      { label: '@kitenzo/react', href: '/reference/react/' },
+    ],
+  },
+  {
+    title: 'Data & guides',
+    links: [
+      { label: 'Data you can pull', href: '/data/' },
+      { label: 'Bundle types', href: '/data/bundle-types/' },
+      { label: 'Hydrogen', href: '/guides/hydrogen/' },
+      { label: 'Next.js', href: '/guides/nextjs/' },
+    ],
+  },
+];
+const year = 2026;
+---
+<footer class="kz-footer not-content">
+  <div class="kz-footer__inner">
+    <div class="kz-footer__cols">
+      <div class="kz-footer__brand">
+        <img src={logo.src} alt="Kitenzo" width="110" />
+        <p>Headless bundles for Shopify — a REST API, a typed SDK, and an embeddable web component.</p>
+      </div>
+      {cols.map((col) => (
+        <div>
+          <h4>{col.title}</h4>
+          <ul>
+            {col.links.map((l) => (
+              <li><a href={l.href}>{l.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+  <div class="kz-footer__bottom">
+    <span>© {year} Kitenzo Ltd · Headless is invite-only</span>
+    <span><a href="mailto:support@kitenzo.com">support@kitenzo.com</a></span>
+  </div>
+</footer>

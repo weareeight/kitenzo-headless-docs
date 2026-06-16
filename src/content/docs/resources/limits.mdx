@@ -1,0 +1,21 @@
+---
+title: Limits & quotas
+description: The known limits of the headless API in one place.
+---
+
+| Limit | Value | Notes |
+|---|---|---|
+| Requests per minute | **100** per API key (default) | Fixed 60s window. Configurable on request. See [Rate limits](/api/rate-limits/). |
+| Bundles returned by `/bundles` | **100** | Only published bundles. |
+| Products per `/configure` or `/price` request | **200** | `products` array length cap. |
+| Bundles per embed `/content` batch | **100** | Embed sub-API only. |
+| Allowed origins per API key | up to ~**20** | Set at key creation; not editable afterward. |
+| API key expiry | none | Valid until revoked (`is_active = false`). |
+
+## Platform scope
+
+- **Shopify only.** Headless targets Shopify storefronts (Hydrogen, Next.js + Storefront API, custom). Non-Shopify commerce platforms aren't supported.
+- **Published bundles only.** Drafts aren't returned.
+- **Conditions engine** is exposed as a signal, not evaluated server-side for custom UIs — see [Conditions & subscriptions](/data/conditions-subscriptions/).
+
+Need a higher limit or have an unusual use case? [Contact support](/resources/support/).

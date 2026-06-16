@@ -1,0 +1,36 @@
+---
+title: Rate limits
+description: Per-key request limits and how to handle 429 responses.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The API is throttled **per API key** using a fixed window.
+
+| Setting | Value |
+|---|---|
+| Default limit | **100 requests/minute** per key |
+| Window | 60 seconds (fixed) |
+| Scope | Per API key |
+| Configurable | Yes — the per-key `rate_limit` can be raised on request |
+
+## When you exceed the limit
+
+The API responds with **`429 Too Many Requests`** and a `Retry-After` header:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+```
+
+Wait `Retry-After` seconds (the window length) before retrying.
+
+## Staying under the limit
+
+- **Cache bundle data.** `/bundles` and `/bundles/:id` change infrequently — cache them in your app or at the edge.
+- **Price locally.** Use the SDK's `calculatePrice` / `useBundlePrice` instead of calling `/price` on every selection change — pricing is computed client-side with no request.
+- **Configure once.** Call `/configure` only when the customer actually adds to cart, not on every interaction.
+
+<Aside type="tip" title="Need a higher limit?">
+If your traffic legitimately needs more than 100 req/min per key, email [support@kitenzo.com](mailto:support@kitenzo.com) — the per-key limit is adjustable.
+</Aside>
