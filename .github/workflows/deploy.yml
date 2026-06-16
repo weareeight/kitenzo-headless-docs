@@ -27,10 +27,9 @@ jobs:
       - name: Build with Astro
         # Builds the site and uploads the dist/ artifact for Pages.
         uses: withastro/action@v3
-        # with:
-        #   path: .            # root of the project (default)
-        #   node-version: 20   # default
-        #   package-manager: npm
+        with:
+          # Astro 6 / @astrojs/mdx require Node >= 22.12.
+          node-version: 22
 
   deploy:
     needs: build
