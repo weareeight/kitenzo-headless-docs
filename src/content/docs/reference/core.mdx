@@ -5,9 +5,9 @@ description: Complete export reference for the framework-agnostic Kitenzo SDK.
 
 import { Aside } from '@astrojs/starlight/components';
 
-<p><span class="kz-badge">v0.2.6 · published</span></p>
+<p><span class="kz-badge">v0.4.0 · published</span></p>
 
-Framework-agnostic SDK. Zero runtime dependencies. Everything here is also re-exported by [`@kitenzo/react`](/reference/react/).
+Framework-agnostic SDK. Zero runtime dependencies — it runs anywhere with `fetch`: browsers, Node, Workers, Deno, a TapCart block. Everything here is also re-exported by [`@kitenzo/react`](/reference/react/).
 
 ```bash
 npm install @kitenzo/core
@@ -17,7 +17,7 @@ Default API base URL: `https://live.bb.eight-cdn.com/api/headless/v1` (override 
 
 ## Public exports
 
-These are the **exact** top-level exports of `@kitenzo/core`:
+These are the **exact** top-level value exports of `@kitenzo/core` (plus all [TypeScript types](/reference/types/)):
 
 | Export | Kind | Purpose |
 |---|---|---|
@@ -28,12 +28,19 @@ These are the **exact** top-level exports of `@kitenzo/core`:
 | `addBundleToCart` | function | Build + apply cart lines and `_bundles`. |
 | `buildCartPayload` | function | Return `{ lines, attributes }` for a configured bundle. |
 | `buildCartLines` | function | Return just the cart lines. |
+| `toSellingPlanGid` | function | Convert a numeric selling plan id to its GID form. |
+| `createAjaxCartOperations` / `AjaxCartError` | function / class | A ready-made `CartOperations` over Shopify's AJAX cart (`/cart/add.js`), for widgets on a normal theme. |
 | `calculatePrice` | function | Local price calculation (flat + tiered). |
-| `formatMoney` | function | Format a number with a Shopify money format. |
+| `calculatePriceWithConditions` | function | Like `calculatePrice`, but applies a firing conditions-engine discount. |
+| `evaluateConditions` / `computeEffectivePrice` | function | Evaluate the conditions-engine graph for a selection. |
+| `formatMoney` | function | Format a number with a Shopify money format string. |
+| `formatCurrency` | function | Format an amount for an arbitrary ISO currency (presentment prices). |
+| `resolvePresentmentPricing` | function | Turn a base-currency `PriceResponse` into the shopper's market currency. |
+| `getSectionLimits` / `getBundleLimits` / `UNBOUNDED` | function / const | Resolve limit rules into `{ min, max }` pick windows. |
+| `defaultOptionValues` / `reachableOptionValues` / `resolveVariant` / `selectOptionValue` | function | Option-grid resolution — one dropdown per option instead of variant titles. |
 | `computeSectionQuantity` | function | Total quantity selected in a section. |
-| `isSectionMet` | function | Whether a section meets its min/max. |
-
-Plus all [TypeScript types](/reference/types/).
+| `isSectionMet` | function | Whether a section meets its constraints. |
+| `createPortalClient` / `PortalApiError` / `SignedOutError` | function / class | Client for agency-built Kitenzo Subscriptions customer portals (subscriptions beta). |
 
 <Aside type="caution" title="That's the whole surface">
 If a function or component isn't in the table above, it isn't a public export of `@kitenzo/core`. There is no prebuilt bundle UI component in core — `createBundleEmbed` mounts the full prebuilt UI; for custom UIs you compose with `createBundleBuilder` + the utilities.
@@ -42,17 +49,18 @@ If a function or component isn't in the table above, it isn't a public export of
 ## `KitenzoClient`
 
 ```ts
-new KitenzoClient({ apiKey, apiVersion?, baseUrl? })
+new KitenzoClient({ apiKey, apiVersion?, baseUrl?, countryCode? })
 ```
 
 | Method | Returns | Description |
 |---|---|---|
 | `listBundles()` | `Promise<Bundle[]>` | Published bundles (no product data). |
-| `getBundle(id)` | `Promise<BundleDetail>` | One bundle, with products/variants merged in. |
-| `submitBundle(bundle, selections, { countryCode? })` | `Promise<SubmitBundleResult>` | Validate + configure. |
-| `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format, features. |
+| `getBundle(id, { countryCode? }?)` | `Promise<BundleDetail>` | One bundle, with products/variants merged in. With a country, variants carry Shopify Markets presentment prices + market availability. |
+| `getPrice(bundle, selections, { countryCode? }?)` | `Promise<PriceResponse>` | Server-authoritative pricing **without** creating a configuration. Base-currency amounts. |
+| `submitBundle(bundle, selections, { countryCode? }?)` | `Promise<SubmitBundleResult>` | Validate + configure. Computes and forwards any conditions-engine discount automatically. |
+| `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format, weight unit, features. |
 
-See [Provider & client](/sdk/provider/) for full options and examples.
+A `countryCode` on the constructor is the default for `getBundle` / `getPrice` / `submitBundle`; the per-call option overrides it. Variant IDs accept GID or plain numeric strings. See [Provider & client](/sdk/provider/).
 
 ## `createBundleBuilder(bundle)`
 
@@ -60,7 +68,11 @@ Returns a state machine with `subscribe` / `getState` (drives `useSyncExternalSt
 
 **Methods:** `addItem(sectionId, variantId, quantity?)`, `removeItem(sectionId, variantId)`, `updateQuantity(sectionId, variantId, quantity)`, `reset()`, `nextSection()`, `prevSection()`, `goToSection(index)`, `getSectionQuantity(sectionId)`, `getState()`, `subscribe(listener)`.
 
-**Snapshot (`getState()`):** `selections`, `currentSectionIndex`, `currentSection`, `isSectionValid`, `isValid`, `isComplete`, `allItems`, `errors`.
+**Snapshot (`getState()`):** `selections`, `currentSectionIndex`, `currentSection`, `isSectionValid`, `isValid`, `isComplete`, **`isSatisfied`**, `allItems`, `errors`, `conditions`.
+
+<Aside type="tip" title="Gate add-to-cart on `isSatisfied`, not `isComplete`">
+`isComplete` treats a section with no stated minimum as needing at least one pick, so it stays `false` forever on "pick any N across groups" bundles. `isSatisfied` reads the bundle's actual limit rules and mirrors the server-side validator — a satisfied selection is one `/configure` accepts. `isComplete` is unchanged for backwards compatibility.
+</Aside>
 
 The React hook [`useBundleBuilder`](/sdk/hooks/) wraps this.
 
@@ -68,9 +80,14 @@ The React hook [`useBundleBuilder`](/sdk/hooks/) wraps this.
 
 | Function | Signature | Notes |
 |---|---|---|
-| `calculatePrice` | `(bundle, selections, currency?) => PriceResponse` | Handles flat + tiered, all operations and operator modes. |
-| `formatMoney` | `(amount, moneyFormat) => string` | Supports `{{amount}}`, `{{amount_no_decimals}}`, comma/apostrophe separators, etc. |
-| `computeSectionQuantity` | `(selections, sectionId) => number` | Total quantity in a section. |
-| `isSectionMet` | `(selections, section) => boolean` | Section meets its constraints. |
+| `calculatePrice` | `(bundle, selections, currency?) => PriceResponse` | Flat + tiered, all operations and operator modes. Local, no request. |
+| `calculatePriceWithConditions` | `(bundle, selections, { currency?, currentStepName? }?) => PriceResponse` | Applies a firing conditional discount over `calculatePrice`. `useBundlePrice` uses it automatically. |
+| `formatMoney` | `(amount, moneyFormat) => string` | All standard Shopify placeholders. |
+| `formatCurrency` | `(amount, currencyCode) => string` | For presentment (market) amounts, where `moneyFormat` doesn't apply. |
+| `resolvePresentmentPricing` | `(bundle, selections, basePricing) => PriceResponse \| null` | Market subtotal + the same discount ratio the base price used; `null` when no market data is loaded. |
+| `getSectionLimits` / `getBundleLimits` | `(bundle, sectionId?) => PickLimits` | `{ min, max }` from the limit rules; open ceilings are `UNBOUNDED`. Don't send through JSON. |
+| `defaultOptionValues` / `reachableOptionValues` / `resolveVariant` / `selectOptionValue` | — | Option-grid resolution; needs the API's `options` + `optionValues`. |
 | `addBundleToCart` / `buildCartPayload` / `buildCartLines` | — | See [Cart helpers](/sdk/cart/). |
+| `createAjaxCartOperations` | `(options?) => CartOperations` | AJAX-cart transport for themed stores; turns non-2xx into real errors. |
 | `createBundleEmbed` | `(container, options) => BundleEmbedInstance` | See [Vanilla embed](/embed/vanilla/). |
+| `evaluateConditions` | `(bundle, selections) => ConditionsEngineResult` | Raw conditions evaluation; the builder exposes the resolved result as `snapshot.conditions`. |

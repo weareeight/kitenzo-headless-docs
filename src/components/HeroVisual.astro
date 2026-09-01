@@ -1,44 +1,42 @@
 ---
-// Hero animation that *shows what headless does*: the Kitenzo bundle
-// experience running inside a custom storefront — items get selected, the
-// discount applies, and the bundle is added to cart. Pure CSS loop.
-// Styles live in src/styles/theme.css (global) so they always load.
+// The landing signature, borrowed from kitenzo.com's homepage: the real
+// @kitenzo/react hook flow on top, and what the engine does underneath.
+// Rows light up in sequence on a CSS loop (no JS). Every line maps to
+// something the published SDK actually does.
+const code = `<span class="kw">import</span> { useBundle, useBundleBuilder }
+  <span class="kw">from</span> <span class="str">'@kitenzo/react'</span>
+
+<span class="kw">const</span> { bundle } = <span class="fn">useBundle</span>(bundleId)
+<span class="kw">const</span> { addItem, isSatisfied } =
+  <span class="fn">useBundleBuilder</span>(bundle)
+
+<span class="fn">addItem</span>(<span class="str">'fragrance'</span>, silkNoir)
+<span class="kw">await</span> <span class="fn">addBundleToCart</span>(bundle, selections)`;
+
+const rows = [
+  { verb: 'useBundle', result: 'bundle hydrated', detail: 'sections, products, variants' },
+  { verb: 'useBundleBuilder', result: 'selection valid', detail: 'limits and required products ok' },
+  { verb: 'useBundlePrice', result: '£86.00 → £68.80', detail: 'local, no round trip' },
+  { verb: 'useBundleCart', result: 'cart lines + _bundles', detail: 'configured bundle d_8f3a21' },
+  { verb: '✓ Cart Transform', result: 'priced at checkout', detail: 'native Shopify, no redirect', final: true },
+];
 ---
-<div class="hv" role="img" aria-label="A Kitenzo bundle being built inside a custom headless storefront: items are selected, a 10% bundle discount applies, and the bundle is added to cart.">
-  <div class="hv__chrome">
-    <span class="hv__dot"></span><span class="hv__dot"></span><span class="hv__dot"></span>
-    <span class="hv__url">your-store.com/bundles/build-your-box</span>
-  </div>
-
-  <div class="hv__app">
-    <div class="hv__head">
-      <span class="hv__kicker">Build your box</span>
-      <span class="hv__state">
-        <span class="hv__state--pick">Pick 3 items</span>
-        <span class="hv__state--done">Bundle ready</span>
-      </span>
+<div class="rt kz-visual" role="img" aria-label="The Kitenzo SDK hook flow: a bundle is hydrated, the selection validated, priced locally, compiled into cart lines with the _bundles attribute, and priced at Shopify checkout by Cart Transform.">
+  <div class="rt__glow" aria-hidden="true"></div>
+  <div class="rt__panel">
+    <div class="rt__chrome">
+      <span>@kitenzo/react</span>
+      <span class="rt__live"><i></i>live</span>
     </div>
-
-    <div class="hv__tiles">
-      <div class="hv__tile" data-i="1"><span class="hv__sw"></span><span class="hv__tick"></span><span class="hv__cap">Roast</span></div>
-      <div class="hv__tile" data-i="2"><span class="hv__sw"></span><span class="hv__tick"></span><span class="hv__cap">Grinder</span></div>
-      <div class="hv__tile" data-i="3"><span class="hv__sw"></span><span class="hv__tick"></span><span class="hv__cap">Filters</span></div>
+    <pre class="rt__code"><code set:html={code} /></pre>
+    <div class="rt__engine">
+      <p class="rt__label">engine</p>
+      {rows.map((r) => (
+        <div class:list={['rt__row', { 'rt__row--final': r.final }]}>
+          <span class="rt__verb">{r.verb}</span>
+          <span class="rt__out"><b>{r.result}</b><em>  ·  {r.detail}</em></span>
+        </div>
+      ))}
     </div>
-
-    <div class="hv__bar"><i></i></div>
-
-    <div class="hv__pay">
-      <div class="hv__price">
-        <span class="hv__was">$59.98</span>
-        <span class="hv__now">$53.98</span>
-        <span class="hv__off">10% off</span>
-      </div>
-      <button class="hv__cta" type="button">Add bundle to cart</button>
-    </div>
-  </div>
-
-  <div class="hv__foot">
-    <span class="hv__live"><i></i>Live</span>
-    <span>Bundle data via Kitenzo API</span>
   </div>
 </div>

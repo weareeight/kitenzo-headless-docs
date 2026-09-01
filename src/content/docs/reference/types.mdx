@@ -3,13 +3,16 @@ title: TypeScript types
 description: The core TypeScript types exported by the Kitenzo SDK.
 ---
 
-These types are exported from `@kitenzo/core` (and re-exported from `@kitenzo/react`). Field names match the API responses.
+These types are exported from `@kitenzo/core` (and re-exported from `@kitenzo/react`). Field names match the API responses; this page lists the surface you'll touch most — the packages ship full `.d.ts` files.
 
 ## Bundles
 
 ```ts
 type BundleType = 'single-product' | 'multiple-products' | 'native';
-type BundlingOption = 'native' | 'custom';
+// 'upsells' is legacy but still emitted by the API — handle defensively.
+// 'native' / 'custom' are never emitted; retained for compatibility only.
+type BundlingOption = 'bundles' | 'upsells' | 'native' | 'custom';
+type ProductStatus = 'ACTIVE' | 'ARCHIVED' | 'DRAFT';
 
 interface Bundle {
   id: number;
@@ -34,7 +37,12 @@ interface BundleDetail {
   discount: BundleDiscount | null;
   requiredProducts?: RequiredProduct[];
   limitRules?: LimitRule[];
+  weightUnit?: string;                          // 'g' | 'kg' | 'oz' | 'lb'
   conditionsEngineEnabled?: boolean;
+  conditionsEngineNodes?: ConditionsEngineNode[];
+  conditionsPartial?: boolean;                  // graph contains nodes headless can't run yet
+  personalisation?: Record<string, PersonalisationField[]>; // keyed by product id
+  sellingPlans?: SellingPlan[];                 // subscriptions beta only
 }
 
 interface BundleSection {
@@ -43,9 +51,10 @@ interface BundleSection {
   description: string;
   imageUrl?: string;
   order?: number;
-  minQuantity?: number;
-  maxQuantity?: number;
+  autoNextSection?: boolean;  // merchant's "advance when satisfied" setting — mirror it
   products: BundleProduct[];
+  // NOTE: min/max picks are NOT here — read them from limitRules via
+  // getSectionLimits(bundle, section.id). See /data/limit-rules/.
 }
 
 interface BundleProduct {
@@ -53,17 +62,41 @@ interface BundleProduct {
   title: string;
   handle: string;
   image?: string;
+  tags?: string[];
+  descriptionHtml?: string;      // raw Shopify HTML — sanitise before rendering
+  status?: ProductStatus;
+  options?: ProductOption[];     // aligned with each variant's optionValues
   variants: BundleVariant[];
+}
+
+interface ProductOption {
+  name: string;
+  position: number;
+  values: string[];
+  swatches?: Record<string, ProductOptionSwatch>;
+}
+interface ProductOptionSwatch {
+  color?: string | null;
+  imageUrl?: string | null;
+  imageAltText?: string | null;
 }
 
 interface BundleVariant {
   id: string;
   title: string;
-  price: string;        // "29.99"
+  price: string;                 // shop currency, "29.99"
+  compareAtPrice?: string;
   available: boolean;
   sku?: string;
   inventoryQuantity?: number;
-  image?: string;
+  grams?: number;                // what the amount-of-weight rule measures
+  optionValues?: string[];       // aligned with the product's options order
+  image?: string;                // only when the variant has its own image
+  // Shopify Markets — present only when the request carried a countryCode:
+  presentmentPrice?: string;     // full precision, market currency
+  presentmentCurrency?: string;  // "EUR"
+  priceInShopCurrency?: string;
+  availableForSale?: boolean;    // sellable in that market (≠ available)
 }
 ```
 
@@ -80,41 +113,42 @@ type LimitRuleType =
   | 'bundle-price-before-discount'
   | 'total-number-of-products'
   | 'amount-of-one-product'
-  | 'number-of-different-products';
+  | 'amount-of-one-variant'
+  | 'number-of-different-products'
+  | 'multiples-of'
+  | 'amount-of-weight';
 
 interface BundleDiscount {
-  type: DiscountType;
+  type: DiscountType | '';      // '' when the merchant configured no discount
   value: string | null;
   flatOrTiered?: DiscountMode;
   minimum?: string | null;
-  operator?: TierOperator;
+  operator?: TierOperator;      // how to combine several active tiers
   tiers?: DiscountTier[];
 }
 
 interface DiscountTier {
   type: TierConditionType;
   value: string;
-  operation: ComparisonOperator;
+  operation: ComparisonOperator;  // note: `operation` here, `operator` on the discount
   discount: string;
+  customText?: string | null;     // merchant copy override for the progress message
 }
 
 interface RequiredProduct {
   shopifyProductId: string;
   variantIds: string[];
   quantity: number;
+  product?: BundleProduct;  // hydrated by getBundle() from the products endpoint
 }
 
 interface LimitRule {
   type: LimitRuleType;
   operation: ComparisonOperator;
   value: string;
-  sectionId: number | null;
+  sectionId: number | null;  // null = bundle-wide
 }
 ```
-
-:::note[`multiples-of`]
-The backend also supports a `multiples-of` limit rule (see [Limit rules](/data/limit-rules/)). If your installed SDK's `LimitRuleType` union doesn't include it yet, treat the `type` field as a string for that rule.
-:::
 
 ## Selections & builder
 
@@ -137,9 +171,25 @@ interface BundleBuilderSnapshot {
   currentSection: BundleSection | null;
   isSectionValid: boolean;
   isValid: boolean;
+  /** Legacy completeness — kept for existing integrations; see isSatisfied. */
   isComplete: boolean;
+  /**
+   * Whether the selection satisfies the bundle's actual limit rules —
+   * i.e. a selection /configure will accept. Gate add-to-cart on THIS.
+   */
+  isSatisfied: boolean;
   allItems: BundleSelection[];
   errors: ValidationError[];
+  /** Conditions-engine result: hidden sections/products, cart-button state, discount override. */
+  conditions: ConditionsSnapshot;
+}
+
+interface ConditionsSnapshot {
+  hiddenSectionIds: number[];
+  hiddenProducts: { productId: string; sectionId: number | null }[];
+  hideCartButton: boolean;
+  gotoSectionId?: number;
+  discountOverride?: { type: 'percentage' | 'fixed' | 'price'; value: number };
 }
 ```
 
@@ -158,7 +208,7 @@ interface SubmitBundleResult {
   configuredBundleId: number;
   variantId: string;
   productId: string;
-  discount: string;
+  discount: string;              // encrypted, server-signed (native bundles)
   subscriptionId: string | null;
   pricing: PriceResponse;
 }
@@ -175,11 +225,58 @@ interface CartOperations {
   addLines: (lines: CartLine[]) => void | Promise<void>;
   getAttributes: () => CartLineAttribute[] | Promise<CartLineAttribute[]>;
   setAttributes: (attributes: CartLineAttribute[]) => void | Promise<void>;
+  getLines?: () => Promise<CartLine[]>;  // lets the cart hooks settle "did it land?" on retry
 }
 
 interface ShopSettings {
   currency: string;
   moneyFormat: string;     // "${{amount}}"
   activeFeatures: string[];
+  weightUnit?: string;
+}
+
+interface KitenzoClientOptions {
+  apiKey: string;          // kit_live_… / kit_test_…
+  apiVersion?: string;     // default 'v1'
+  baseUrl?: string;        // overrides apiVersion when set
+  countryCode?: string;    // default Shopify Market for product/price requests
 }
 ```
+
+## Subscriptions & personalisation
+
+```ts
+interface SellingPlan {
+  sellingPlanId: number;   // numeric — cart builders convert to GID where needed
+  name: string;            // "Every 4 weeks, save 10%"
+  cadenceLabel: string;    // "Every 4 weeks"
+  savingPercent: number;   // 0 when the plan has no discount
+}
+
+type PersonalisationFieldType = 'text' | 'dropdown' | 'checkbox' | 'image';
+
+interface PersonalisationField {
+  id: string;
+  key: string;             // FROZEN line-item property key — submit under this, not label
+  label: string;
+  type: PersonalisationFieldType;
+  required: boolean;
+  placeholder?: string | null;
+  characterLimit?: number | null;
+  options?: string[] | null;      // for 'dropdown'
+  helpText?: string | null;
+  feeOptionId?: number | null;
+  fee?: PersonalisationFieldFee | null;
+}
+
+interface PersonalisationFieldFee {
+  feeOptionId: number;
+  variantId: number;       // hidden fee product — add as its own cart line
+  amount: string;
+  currencyCode: string;
+  taxable: boolean;
+  name: string;
+}
+```
+
+The conditions-engine node types (`ConditionsEngineNode`, `ConditionType`, `ActionType`, `ConditionsEngineResult`, …) are also exported — see [Conditions & subscriptions](/data/conditions-subscriptions/) and the `@kitenzo/core` README for the evaluator.

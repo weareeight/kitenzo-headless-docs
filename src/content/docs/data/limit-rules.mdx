@@ -1,11 +1,11 @@
 ---
 title: Limit rules
-description: The six rule types that constrain a valid bundle, and how to read them.
+description: The eight rule types that constrain a valid bundle, and how to read them.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Limit rules constrain what counts as a valid bundle (minimums, maximums, multiples). They're returned in `limitRules[]` on `GET /bundles/:id`.
+Limit rules constrain what counts as a valid bundle (minimums, maximums, multiples, weight). They're returned in `limitRules[]` on `GET /bundles/:id`.
 
 ## Rule object
 
@@ -26,18 +26,37 @@ Limit rules constrain what counts as a valid bundle (minimums, maximums, multipl
 |---|---|
 | `bundle-price` | The bundle price **after** discount. |
 | `bundle-price-before-discount` | The bundle price **before** discount. |
-| `total-number-of-products` | Total count of all products in the bundle. |
-| `amount-of-one-product` | Max quantity of any single product. |
+| `total-number-of-products` | Total count of all products. This is also how a step's min/max picks are expressed (with the step's `sectionId`). |
+| `amount-of-one-product` | The quantity of any single product. |
+| `amount-of-one-variant` | The quantity of any single **variant** (per-variant uniqueness, e.g. "at most 1 of each"). |
 | `number-of-different-products` | Count of distinct products. |
 | `multiples-of` | The product count must be a multiple of `value` (e.g. 6, 12, 18). |
+| `amount-of-weight` | Total weight of the selection, measured from each variant's `grams` and compared in the shop's `weightUnit` (on the bundle payload and `/settings`). |
 
-<Aside type="note" title="`multiples-of` ignores `operation`">
-For the `multiples-of` rule, the `operation` field is not used — the rule simply checks that the count is divisible by `value`.
+## Semantics worth knowing
+
+These mirror the engine's server-side validator (`/configure` is the authority), so match them or your UI will under- or over-gate:
+
+- **`multiples-of` ignores `operation`** — the value is the unit and the count must be a positive multiple of it. A zero or blank unit is a no-op.
+- **`amount-of-one-product` / `amount-of-one-variant`** hold when **every** product/variant satisfies the rule, not just the most-picked one (identical for the common `lte` shape; different for `gte`/`gt`/`eq`).
+- **Step pick counts**: `eq 8` = exactly 8; `gte 3` + `lte 5` = a range; only `lte` = optional with a ceiling; no rule = optional, unbounded. `gt`/`lt` are exclusive.
+- **Weight**: without variant `grams`, the rule can never fire client-side — the products endpoint serves `grams` for exactly this reason.
+
+## Reading them without re-deriving the maths
+
+The SDK turns rules into usable numbers and a single gate:
+
+- `getSectionLimits(bundle, sectionId)` → `{ min, max }` for one step (`max` can be `UNBOUNDED`).
+- `getBundleLimits(bundle)` → the bundle-wide "pick any N" window.
+- `builder.getState().isSatisfied` → whether the current selection would be accepted by `/configure`. **Gate add-to-cart on this**, and read `errors` for the human-readable reasons.
+
+<Aside type="caution" title="Don't serialise PickLimits through JSON">
+An open ceiling is `UNBOUNDED` (`Infinity`), and `JSON.stringify` turns it into `null` — after which every count fails the ceiling check. Recompute limits where you use them; they derive from the bundle you already have.
 </Aside>
 
 ## How they're validated
 
-- Rules are evaluated once all sections are filled. The SDK's builder exposes violations as `errors` and reflects overall validity through `isValid` / `isComplete`.
+- The SDK's builder exposes violations as `errors` and overall validity through `isSatisfied` (preferred) / `isComplete` (legacy — see [Hooks](/sdk/hooks/)).
 - Only rules that target the **bundle** are returned to headless consumers (rules that gate free items are handled internally).
 
 <Aside type="tip" title="Surface rule failures in your UI">

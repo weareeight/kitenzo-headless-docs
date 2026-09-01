@@ -42,6 +42,27 @@ Browser
                               Shopify checkout (cart transform)
 ```
 
+## TapCart / no-SDK flow
+
+Clients that can't run the JS SDK (a TapCart custom block, a native app, a server-side cart writer) use the same two API calls, but take the pre-encoded `cart` payload from `/configure` instead of building lines themselves:
+
+```
+TapCart custom block (webview)
+  │
+  ├─ 1. Read bundles ───────────────► Kitenzo API
+  │
+  ├─ 2. POST /configure ────────────► Kitenzo API
+  │      → cart { line_items with _bundle_data, attributes._bundles }
+  │
+  └─ 3. Write the app's cart ───────► Tapcart.action('cart/add' / 'cart/updateAttributes')
+                                        │
+                                        ▼
+                              Shopify web checkout (native sheet)
+                              Cart transform applies the discount
+```
+
+See [TapCart mobile apps](/guides/tapcart/) for the full walkthrough.
+
 ## Key principles
 
 - **Kitenzo is not a product-data proxy for the cart.** It returns Shopify product/variant **GIDs** and live pricing for *building* the bundle; cart mutations and checkout happen against Shopify directly.

@@ -28,6 +28,7 @@ function App() {
 | `apiKey` | `string` | — *(required)* | Headless API key (`kit_live_…` / `kit_test_…`). |
 | `apiVersion` | `string` | `'v1'` | API version segment. |
 | `baseUrl` | `string` | `https://live.bb.eight-cdn.com/api/headless/v1` | Override the API base URL (e.g. for staging or local dev). When set, `apiVersion` is ignored. |
+| `countryCode` | `string` | — | Shopify Markets country (ISO 3166-1 alpha-2, e.g. `"DE"`). Set it once and every price the hooks fetch and display honours that market. Must match the `buyerIdentity.countryCode` you set on the Shopify cart. |
 | `children` | `ReactNode` | — | Your app. |
 
 <Aside type="note" title="Settings are fetched automatically">
@@ -45,7 +46,7 @@ const bundles = await client.listBundles();
 
 ## `useSettings()`
 
-Returns the shop's `ShopSettings` (`{ currency, moneyFormat, activeFeatures }`) or `null` while loading.
+Returns the shop's `ShopSettings` (`{ currency, moneyFormat, activeFeatures, weightUnit }`) or `null` while loading.
 
 ```tsx
 const settings = useSettings();
@@ -62,6 +63,7 @@ import { KitenzoClient } from '@kitenzo/core';
 const client = new KitenzoClient({
   apiKey: 'kit_live_…',
   // baseUrl: 'http://localhost:8123/api/headless/v1', // optional override
+  // countryCode: 'DE',                                // optional default market
 });
 ```
 
@@ -72,15 +74,17 @@ const client = new KitenzoClient({
 | `apiKey` | `string` | — *(required)* | Must start with `kit_live_` or `kit_test_`. |
 | `apiVersion` | `string` | `'v1'` | Must match `v\d+`. |
 | `baseUrl` | `string` | `https://live.bb.eight-cdn.com/api/headless/v1` | Full base URL override. |
+| `countryCode` | `string` | — | Default Shopify Market for `getBundle` / `getPrice` / `submitBundle`; overridable per call. |
 
 ### Methods
 
 | Method | Signature | Returns | Description |
 |---|---|---|---|
 | `listBundles` | `listBundles()` | `Promise<Bundle[]>` | All published bundles (lightweight, no product data). |
-| `getBundle` | `getBundle(id: number)` | `Promise<BundleDetail>` | One bundle with sections, products and variants merged. |
-| `submitBundle` | `submitBundle(bundle, selections, { countryCode? })` | `Promise<SubmitBundleResult>` | Validate the selection and create a configured bundle; returns variant/product, discount, subscription and pricing. |
-| `getSettings` | `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format and active features. |
+| `getBundle` | `getBundle(id, { countryCode? }?)` | `Promise<BundleDetail>` | One bundle with sections, products and variants merged. With a country: presentment prices + market availability per variant. |
+| `getPrice` | `getPrice(bundle, selections, { countryCode? }?)` | `Promise<PriceResponse>` | Server-authoritative pricing **without** creating a configuration. Base-currency amounts; a country makes the discount maths market-correct. |
+| `submitBundle` | `submitBundle(bundle, selections, { countryCode? }?)` | `Promise<SubmitBundleResult>` | Validate the selection and create a configured bundle. Computes and forwards a firing conditions-engine discount automatically (the server validates and signs it). |
+| `getSettings` | `getSettings()` | `Promise<ShopSettings>` | Shop currency, money format, weight unit and active features. |
 
 Errors are thrown as `KitenzoError` (with `.status` and `.response`). See [TypeScript types](/reference/types/) for the return shapes.
 

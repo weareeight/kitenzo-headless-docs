@@ -39,7 +39,7 @@ Returns published bundles (capped at 100). Lightweight — no sections or produc
 | `description` | `string` | Merchant description (may be empty). |
 | `imageUrl` | `string` | Bundle image (may be empty). |
 | `type` | `string` | `single-product` \| `multiple-products` \| `native`. |
-| `bundlingOption` | `string` | `bundles` or `upsells`. |
+| `bundlingOption` | `string` | Normally `bundles`. Legacy `upsells` bundles are still returned — handle defensively. |
 | `published` | `boolean` | Always `true` here. |
 
 ---
@@ -48,7 +48,7 @@ Returns published bundles (capped at 100). Lightweight — no sections or produc
 
 <Endpoint method="GET" path="/bundles/:id" />
 
-Full configuration: sections, discount, limit rules, required products and the conditions-engine signal. Product/variant detail comes from the [products endpoint](#bundle-products).
+Full configuration: sections, discount, limit rules, required products and the conditions-engine graph. Product/variant detail comes from the [products endpoint](#bundle-products).
 
 **Response `200`**
 
@@ -67,7 +67,7 @@ Full configuration: sections, discount, limit rules, required products and the c
     "value": "10.00",
     "flatOrTiered": "flat",
     "minimum": null,
-    "operator": null,
+    "operator": "max",
     "tiers": []
   },
   "sections": [
@@ -77,6 +77,7 @@ Full configuration: sections, discount, limit rules, required products and the c
       "description": "",
       "imageUrl": "",
       "order": 0,
+      "autoNextSection": true,
       "products": [
         { "bundleItemId": 7, "shopifyProductId": "111", "variantIds": ["1001", "1002"] }
       ]
@@ -88,19 +89,32 @@ Full configuration: sections, discount, limit rules, required products and the c
   "limitRules": [
     { "type": "total-number-of-products", "operation": "gte", "value": "3", "sectionId": null }
   ],
-  "conditionsEngineEnabled": false
+  "weightUnit": "kg",
+  "conditionsEngineEnabled": false,
+  "conditionsEngineNodes": [],
+  "conditionsPartial": false
 }
 ```
 
 | Field | Type | Description |
 |---|---|---|
 | `layout` | `string` | `single-page` \| `multiple-sections`. |
-| `discount` | `object \| null` | See [Discounts](/data/discounts/). |
-| `sections[]` | `array` | `id`, `name`, `description`, `imageUrl`, `order`, `products[]`. |
+| `discount` | `object \| null` | Tiers carry `type`, `value`, `operation`, `discount` and `customText` (merchant copy override, `null` when unset). See [Discounts](/data/discounts/). |
+| `sections[]` | `array` | `id`, `name`, `description`, `imageUrl`, `order`, `autoNextSection`, `products[]`. |
+| `sections[].autoNextSection` | `boolean` | The merchant's "advance to the next step once this one is satisfied" setting. Mirror it rather than hardcoding the behaviour. |
 | `sections[].products[]` | `array` | `bundleItemId`, `shopifyProductId`, `variantIds[]` (empty = all variants allowed). |
 | `requiredProducts[]` | `array` | `shopifyProductId`, `variantIds[]`, `quantity`. |
 | `limitRules[]` | `array` | `type`, `operation`, `value`, `sectionId`. See [Limit rules](/data/limit-rules/). |
-| `conditionsEngineEnabled` | `boolean` | Whether the bundle has conditional free-item logic. |
+| `weightUnit` | `string` | Shop weight unit (`g`/`kg`/`oz`/`lb`) for the `amount-of-weight` rule. |
+| `conditionsEngineEnabled` | `boolean` | Whether the bundle has conditions-engine logic. |
+| `conditionsEngineNodes[]` | `array` | Serialised rule graph (present when the shop's conditions feature is on). The SDK evaluates it client-side. |
+| `conditionsPartial` | `boolean` | `true` when the bundle uses conditions the headless evaluator can't run yet (cascade-variant) and they were stripped. |
+| `sellingPlans[]?` | `array` | Live Kitenzo Subscriptions plans — present only for shops in the subscriptions beta with live programs on this bundle. See [Conditions & subscriptions](/data/conditions-subscriptions/). |
+| `personalisation?` | `object` | Per-product personalisation field definitions, keyed by Shopify product ID. Present only when the shop's personalisation feature is on. |
+
+<Aside type="note" title="Sections carry no min/max">
+A step's pick counts are **not** fields on the section — they arrive as `total-number-of-products` entries in `limitRules` carrying that section's `id` (bundle-wide rules have `sectionId: null`). The SDK resolves them via `getSectionLimits` / `getBundleLimits`.
+</Aside>
 
 <Aside type="caution" title="404 for unpublished bundles">
 Only published bundles owned by the key's shop are returned. Anything else is a `404`.
@@ -112,7 +126,13 @@ Only published bundles owned by the key's shop are returned. Anything else is a 
 
 <Endpoint method="GET" path="/bundles/:id/products" />
 
-Full product and variant data for the bundle — live pricing, SKU, availability and inventory.
+Full product and variant data for the bundle — live pricing, SKU, availability, inventory, options and content fields.
+
+**Query parameters**
+
+| Param | Type | Description |
+|---|---|---|
+| `countryCode` | `string` | Optional ISO 3166-1 alpha-2 country. Adds Shopify Markets presentment pricing + market availability per variant. |
 
 **Response `200`**
 
@@ -125,15 +145,24 @@ Full product and variant data for the bundle — live pricing, SKU, availability
       "title": "Classic Tee",
       "handle": "classic-tee",
       "imageUrl": "https://cdn.shopify.com/…",
+      "status": "ACTIVE",
+      "tags": ["summer", "tees"],
+      "descriptionHtml": "<p>Our classic tee…</p>",
+      "options": [
+        { "name": "Size", "position": 1, "values": ["Small", "Medium"], "swatches": {} }
+      ],
       "variants": [
         {
           "shopifyVariantId": "1001",
           "shopifyVariantGid": "gid://shopify/ProductVariant/1001",
           "title": "Small / Black",
           "price": "29.99",
+          "compareAtPrice": null,
           "sku": "TEE-S-BLK",
           "available": true,
-          "inventoryQuantity": 42
+          "inventoryQuantity": 42,
+          "grams": 180,
+          "optionValues": ["Small", "Black"]
         }
       ]
     }
@@ -141,7 +170,28 @@ Full product and variant data for the bundle — live pricing, SKU, availability
 }
 ```
 
-See [Sections, products & variants](/data/products/) for the availability rules.
+**Product fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | `string` | `ACTIVE` \| `ARCHIVED` \| `DRAFT`. Archived/draft products can't be added to the cart — don't render them as pickable. |
+| `tags` | `string[]` | Product tags (Kitenzo's internal `bundle-builder-*` control tags are stripped). |
+| `descriptionHtml` | `string` | Raw Shopify product HTML — **sanitise before rendering**. |
+| `options[]` | `array` | Option definitions (`name`, `position`, `values[]`, `swatches`) in Shopify's order, aligned with each variant's `optionValues`. |
+
+**Variant fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `price` | `string` | Shop-currency price, 2 decimals. |
+| `compareAtPrice` | `string \| null` | The variant's own compare-at price, when set. |
+| `grams` | `number` | Weight in grams (what the `amount-of-weight` rule measures). |
+| `optionValues` | `string[]` | Option values in the same order as the product's `options`. |
+| `image` | `string?` | Variant-level image — present **only** when the variant has one of its own; fall back to the product image. |
+| `available` | `boolean` | Base-store purchasability (see [availability rules](/data/products/)). |
+| `presentmentPrice` / `presentmentCurrency` / `priceInShopCurrency` / `availableForSale` | — | Present only when `countryCode` was supplied. `availableForSale: false` means "not sold in that market" — distinct from `available`. |
+
+See [Sections, products & variants](/data/products/) for the full semantics.
 
 ---
 
@@ -149,7 +199,7 @@ See [Sections, products & variants](/data/products/) for the availability rules.
 
 <Endpoint method="POST" path="/bundles/:id/configure" />
 
-Validates a customer's selection, creates a configured bundle, and returns the data needed to add it to the Shopify cart.
+Validates a customer's selection, creates a configured bundle, and returns the data needed to add it to the Shopify cart — including, for native bundles, a **cart-ready payload** any HTTP client can write straight to a cart (this is what the [TapCart guide](/guides/tapcart/) uses).
 
 **Request body**
 
@@ -169,6 +219,8 @@ Validates a customer's selection, creates a configured bundle, and returns the d
 | `type` | `string` | Yes | `native` \| `multiple-products` \| `single-product`. |
 | `products` | `array` | Yes | Non-empty list; each item needs `variant`, `product`, `section`. Max **200**. |
 | `countryCode` | `string` | No | For market-aware pricing. |
+| `subscription` | `object` | No | `id` (recurring group), `email`, `frequency`, `unit` — creates a pending subscription. |
+| `bundleContent` | `object` | No | Conditions-engine discount override (`conditionsDiscount`) — sent automatically by the SDK; the server validates and signs it. |
 
 **Response `200`**
 
@@ -185,6 +237,15 @@ Validates a customer's selection, creates a configured bundle, and returns the d
     "discountType": "percentage",
     "discountValue": "10.00",
     "currency": "USD"
+  },
+  "cart": {
+    "line_items": [
+      { "id": 1001, "quantity": 1, "properties": { "_bundle_data": "9876#44556677#<uuid>" } },
+      { "id": 1002, "quantity": 1, "properties": { "_bundle_data": "9876#44556677#<uuid>" } }
+    ],
+    "attributes": {
+      "_bundles": "{\"9876\": {\"configuredBundleId\": 9876, \"discount\": \"…\", \"title\": \"…\", \"items\": [{\"variantId\": 1001, \"count\": 1}], \"image\": null, \"note\": null, \"id\": 42}}"
+    }
   }
 }
 ```
@@ -192,11 +253,18 @@ Validates a customer's selection, creates a configured bundle, and returns the d
 | Field | Type | Description |
 |---|---|---|
 | `configured_bundle_id` | `number` | The configured bundle's ID. |
-| `variant_id` | `string` | Shopify variant to add to cart. |
+| `variant_id` | `string` | Shopify variant to add to cart (the bundle's ghost variant, for non-native paths). |
 | `product_id` | `string` | Shopify product for the bundle. |
-| `discount` | `string` | Encrypted discount string (for native bundles' cart transform). |
+| `discount` | `string` | Encrypted, server-signed discount string (what the Cart Transform decrypts). |
 | `subscription_id` | `number \| null` | Set when a recurring subscription option was chosen. |
 | `pricing` | `object` | Same shape as the [price endpoint](#price-a-selection). |
+| `cart` | `object \| null` | **Cart-ready payload** — native bundles only; `null` for other types (their discount is in the variant price). |
+| `cart.line_items[]` | `array` | Shopify `/cart/add.js`-shaped items (`id`, `quantity`, `properties`). Each carries `_bundle_data` = `configuredBundleId#parentVariantId#uniqueId`; all entries of one call share the same `uniqueId`. |
+| `cart.attributes._bundles` | `string` | Stringified one-entry map for the `_bundles` cart attribute, keyed by `configuredBundleId`. **Merge** it into any existing `_bundles` value — don't overwrite. |
+
+<Aside type="tip" title="Who should use `cart`?">
+Clients that can't run the JS SDK — TapCart custom blocks, native apps, server-side cart writers. On web, `buildCartPayload` / `addBundleToCart` in [`@kitenzo/core`](/sdk/cart/) produce the equivalent Storefront-API-shaped payload for you. Full walkthrough: [TapCart mobile apps](/guides/tapcart/).
+</Aside>
 
 ---
 
@@ -204,7 +272,7 @@ Validates a customer's selection, creates a configured bundle, and returns the d
 
 <Endpoint method="POST" path="/bundles/:id/price" />
 
-Calculates pricing for a selection **without** creating a configured bundle. Same request body as `/configure`.
+Calculates pricing for a selection **without** creating a configured bundle. Same request body as `/configure` (minus `type`): `products`, plus optional `countryCode` and `bundleContent`.
 
 **Response `200`**
 
@@ -217,6 +285,8 @@ Calculates pricing for a selection **without** creating a configured bundle. Sam
   "currency": "USD"
 }
 ```
+
+Amounts are always in the shop's **base** currency — `countryCode` makes the discount maths market-correct but doesn't change the response currency. For displaying localised prices, use the SDK's presentment helpers.
 
 <Aside type="tip" title="Prefer local pricing">
 For live UI updates, use the SDK's `calculatePrice` / `useBundlePrice` (client-side, no request) and reserve `/price` for server-side confirmation.
@@ -234,7 +304,8 @@ For live UI updates, use the SDK's `calculatePrice` / `useBundlePrice` (client-s
 {
   "activeFeatures": ["headless_api", "subscriptions"],
   "currency": "USD",
-  "moneyFormat": "${{amount}}"
+  "moneyFormat": "${{amount}}",
+  "weightUnit": "kg"
 }
 ```
 
@@ -243,3 +314,4 @@ For live UI updates, use the SDK's `calculatePrice` / `useBundlePrice` (client-s
 | `activeFeatures` | `string[]` | Enabled Kitenzo features for the shop. |
 | `currency` | `string` | Shop currency code. |
 | `moneyFormat` | `string` | Shopify money format string (used by `formatMoney`). |
+| `weightUnit` | `string` | Shop weight unit (`g`/`kg`/`oz`/`lb`). |

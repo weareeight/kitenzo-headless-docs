@@ -1,6 +1,6 @@
 ---
 title: Hooks
-description: Every React hook in @kitenzo/react — useBundles, useBundle, useBundleBuilder, useBundlePrice, useBundleCart.
+description: Every React hook in @kitenzo/react — useBundles, useBundle, useBundleBuilder, useBundlePrice, useBundleCart, useBundleAjaxCart, useSellingPlan.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -24,7 +24,7 @@ const { bundles, isLoading, error, refetch } = useBundles();
 
 ## `useBundle(id, options?)`
 
-Fetch a single bundle's full detail (sections + products + variants). Supports SSR hydration.
+Fetch a single bundle's full detail (sections + products + variants). Supports SSR hydration. When `countryCode` is set on the provider, the bundle loads with Shopify Markets presentment prices and market availability.
 
 ```tsx
 const { bundle, isLoading, error, refetch } = useBundle(42, { initialData });
@@ -39,7 +39,7 @@ Returns `{ bundle: BundleDetail \| null, isLoading, error, refetch }`.
 
 ## `useBundleBuilder(bundle)`
 
-Wraps `createBundleBuilder` with React state. Tracks the customer's selection, section navigation and validity.
+Wraps `createBundleBuilder` with React state. Tracks the customer's selection, section navigation, validity and the conditions-engine result.
 
 ```tsx
 const b = useBundleBuilder(bundle);
@@ -57,21 +57,27 @@ b.nextSection();
 | `selections` | `SectionSelections` | `Record<sectionId, BundleSelection[]>`. |
 | `currentSectionIndex` | `number` | Active section (0-based). |
 | `currentSection` | `BundleSection \| null` | Active section object. |
-| `isSectionValid` | `boolean` | Current section meets its min/max. |
-| `isValid` | `boolean` | All sections meet min/max. |
-| `isComplete` | `boolean` | Valid **and** all rules pass **and** required products present. |
+| `isSectionValid` | `boolean` | Current section meets its constraints. |
+| `isValid` | `boolean` | All sections meet their constraints. |
+| `isComplete` | `boolean` | Legacy completeness flag — see the aside below. |
+| `isSatisfied` | `boolean` | The bundle's **actual** limit rules are met — a selection `/configure` will accept. **Gate add-to-cart on this.** |
 | `allItems` | `BundleSelection[]` | Flat list of all selections. |
 | `errors` | `ValidationError[]` | Limit-rule / required-product violations (empty when valid). |
+| `conditions` | `ConditionsSnapshot` | Conditions-engine result: `hiddenSectionIds`, `hiddenProducts`, `hideCartButton`, `gotoSectionId`, `discountOverride`. All-empty when the bundle has no rule graph. |
 
 **Methods (write):** `addItem(sectionId, variantId, quantity?)`, `removeItem(sectionId, variantId)`, `updateQuantity(sectionId, variantId, quantity)`, `reset()`, `nextSection()`, `prevSection()`, `goToSection(index)`, `getSectionQuantity(sectionId)`.
 
-<Aside type="note" title="Required products aren't auto-added">
-`useBundleBuilder` does not auto-include a bundle's required products — that's intentional. Read `bundle.requiredProducts` and add them yourself if your UX calls for it. `isComplete` still checks they're present.
+<Aside type="caution" title="Gate add-to-cart on `isSatisfied`, not `isComplete`">
+`isComplete` treats a section with no stated minimum as needing at least one pick, so it stays `false` forever on a bundle-wide "pick any 4 across groups" bundle and on a step whose only rule is a maximum. `isSatisfied` reads the bundle's actual limit rules and mirrors the server-side validator. `isComplete` is unchanged because existing integrations depend on it.
+</Aside>
+
+<Aside type="note" title="Required products are appended on submit">
+A required product usually belongs to the bundle rather than to a step, so it never appears in `selections` — the SDK appends it automatically when you submit, and `isSatisfied` accounts for it (it counts toward the bundle-wide total, not any per-section window). Read `bundle.requiredProducts` (hydrated with full product detail) to *display* what's included.
 </Aside>
 
 ## `useBundlePrice(bundle, selections, options?)`
 
-Compute the price **locally** (no API call). Recomputes instantly as selections change and formats with the shop's money format.
+Compute the price **locally** (no API call). Recomputes instantly as selections change, applies any firing conditions-engine discount, and formats with the shop's money format.
 
 ```tsx
 const price = useBundlePrice(bundle, builder.selections);
@@ -89,11 +95,11 @@ const price = useBundlePrice(bundle, builder.selections);
 | `currency` | `string \| null` | Currency label. |
 | `hasDiscount` | `boolean` | Whether a discount applies. |
 
-`options.currency` overrides the shop currency (defaults to `settings.currency` or `'USD'`). All fields are `null` when there are no selections.
+`options.currency` overrides the shop currency. All fields are `null` when there are no selections. With `countryCode` on the provider, prices come back in the shopper's **market** currency, formatted with `Intl.NumberFormat` instead of `moneyFormat` — no code change needed.
 
 ## `useBundleCart()`
 
-Submit a selection via `client.submitBundle`, tracking loading/error state.
+Submit a selection via `client.submitBundle`, tracking loading/error state. It does **not** touch a cart — for the whole flow, prefer `useBundleAjaxCart` (themed store) or `useStorefrontBundleCart` (Hydrogen) below.
 
 ```tsx
 const { addBundleToCart, isLoading, error, lastResult } = useBundleCart();
@@ -102,13 +108,41 @@ const result = await addBundleToCart(bundle, builder.selections, { countryCode: 
 // result: SubmitBundleResult { configuredBundleId, variantId, productId, discount, subscriptionId, pricing }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `addBundleToCart` | `(bundle, selections, { countryCode? }) => Promise<SubmitBundleResult>` | Validate + configure the bundle on the server. |
-| `isLoading` | `boolean` | Submission in flight. |
-| `error` | `Error \| null` | Submission error. |
-| `lastResult` | `SubmitBundleResult \| null` | Most recent result. |
-
 <Aside type="caution" title="This returns a result — it doesn't touch the cart">
-`useBundleCart().addBundleToCart` configures the bundle and returns cart data. To actually add it to the Shopify cart (lines + `_bundles` attribute), pass the result to the [`addBundleToCart` cart helper](/sdk/cart/).
+`useBundleCart().addBundleToCart` configures the bundle and returns cart data. To actually add it to the Shopify cart (lines + `_bundles` attribute), pass the result to the [`addBundleToCart` cart helper](/sdk/cart/) — or use one of the flow hooks below, which own the whole choreography.
 </Aside>
+
+## `useBundleAjaxCart(options?)`
+
+Configures the bundle **and** puts it in the theme's own cart (`/cart/add.js` → `/cart/update.js`), for a widget embedded in a normal Shopify storefront. Merges `_bundles` rather than replacing it, turns non-2xx responses into real errors, and never double-adds on retry.
+
+```tsx
+const { addToCart, isAdding, isAdded, error, phase, failureReason, reset } = useBundleAjaxCart({
+  onAdded: () => { window.location.href = '/cart'; },
+});
+
+<button disabled={isAdding} onClick={() => addToCart(bundle, selections)}>
+  {isAdding ? 'Adding…' : 'Add to cart'}
+</button>
+```
+
+Key facts about the shared cart-flow state (`UseBundleCartFlowResult`):
+
+- `phase` is `'idle' | 'configuring' | 'adding' | 'attributes' | 'added' | 'failed'`. The `adding`/`attributes` split matters: the discount lives in a **second** mutation, so only `added` means "safe to check out".
+- `addToCart` never rejects — it resolves `{ ok: true, result }` or `{ ok: false, reason, error }`, with `failureReason` one of `already-in-progress`, `cart-busy`, `cart-not-ready`, `configure-failed`, `cart-error`, `timeout`.
+- Options: `onAdded(result)`, `onError(error, reason)`, `routePrefix` (locale-scoped stores, e.g. `'/en-gb'`), `fetchImpl`.
+
+For a Storefront-API cart, `useStorefrontBundleCart` from [`@kitenzo/react/hydrogen`](/reference/react/) returns the identical shape (plus `hasMissingItems` and a `timeoutMs` option), so one set of buttons serves both cart modes.
+
+## `useSellingPlan(bundle, options?)`
+
+Purchase-option state for [Kitenzo Subscriptions](/data/conditions-subscriptions/) (subscriptions beta). Plans come off `bundle.sellingPlans`; one-time purchase is the `null` selection.
+
+```tsx
+const { plans, hasPlans, selectedPlanId, selectPlan, cartLineOptions } = useSellingPlan(bundle);
+
+// render one-time + each plan as radios; then pass cartLineOptions on:
+const payload = buildCartPayload(result, cart.attributes, { bundle, selections }, cartLineOptions);
+```
+
+A stale selection (a plan unpublished mid-session) falls back to one-time rather than sending a dead plan id to the cart.

@@ -1,5 +1,6 @@
 ---
-// Dark sitemap footer used as secondary navigation on the landing page.
+// Site-map footer for the landing page, in the kitenzo.com footer style:
+// hairline on top, wordmark + tagline, mono column headings, bottom bar.
 import logo from '../assets/logo.png';
 
 const cols = [
@@ -17,7 +18,7 @@ const cols = [
     links: [
       { label: 'Mode 1 — Embed', href: '/embed/' },
       { label: 'Mode 2 — SDK', href: '/sdk/' },
-      { label: 'Hooks', href: '/sdk/hooks/' },
+      { label: 'TapCart mobile apps', href: '/guides/tapcart/' },
       { label: 'Cart & discounts', href: '/guides/cart-discounts/' },
     ],
   },
@@ -35,19 +36,28 @@ const cols = [
     links: [
       { label: 'Data you can pull', href: '/data/' },
       { label: 'Bundle types', href: '/data/bundle-types/' },
-      { label: 'Hydrogen', href: '/guides/hydrogen/' },
+      { label: 'Shopify Hydrogen', href: '/guides/hydrogen/' },
       { label: 'Next.js', href: '/guides/nextjs/' },
     ],
   },
+  {
+    title: 'Kitenzo',
+    links: [
+      { label: 'kitenzo.com', href: 'https://kitenzo.com' },
+      { label: 'For developers', href: 'https://kitenzo.com/developers' },
+      { label: 'Help Center', href: 'https://support.kitenzo.com/' },
+      { label: 'Support', href: '/resources/support/' },
+    ],
+  },
 ];
-const year = 2026;
+const year = new Date().getFullYear();
 ---
 <footer class="kz-footer not-content">
-  <div class="kz-footer__inner">
+  <div class="kz-container">
     <div class="kz-footer__cols">
       <div class="kz-footer__brand">
-        <img src={logo.src} alt="Kitenzo" width="110" />
-        <p>Headless bundles for Shopify — a REST API, a typed SDK, and an embeddable web component.</p>
+        <a href="/" title="Kitenzo Headless"><img src={logo.src} alt="Kitenzo" width="110" /></a>
+        <p>The bundle commerce layer for Shopify — now for any storefront.</p>
       </div>
       {cols.map((col) => (
         <div>
@@ -60,9 +70,9 @@ const year = 2026;
         </div>
       ))}
     </div>
-  </div>
-  <div class="kz-footer__bottom">
-    <span>© {year} Kitenzo Ltd · Headless is invite-only</span>
-    <span><a href="mailto:support@kitenzo.com">support@kitenzo.com</a></span>
+    <div class="kz-footer__bottom">
+      <span>© {year} Kitenzo Ltd. Headless is invite-only.</span>
+      <a class="kz-nav-pill" href="mailto:support@kitenzo.com?subject=Kitenzo%20Headless%20access">Request access</a>
+    </div>
   </div>
 </footer>

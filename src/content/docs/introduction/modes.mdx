@@ -5,7 +5,7 @@ description: Choose between embedding the full Kitenzo UI or building a custom U
 
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
-There are two ways to put a Kitenzo bundle into a headless storefront. They share the same API and the same API key — pick based on how much control you want over the UI.
+There are two ways to put a Kitenzo bundle into a headless storefront. They share the same API and the same API key — pick based on how much control you want over the UI. (Building for a **TapCart mobile app**? That's the custom-UI path with a cart twist — see the [TapCart guide](/guides/tapcart/).)
 
 <CardGrid>
   <Card title="Mode 1 — Embed the full UI" icon="puzzle">
@@ -37,6 +37,10 @@ There are two ways to put a Kitenzo bundle into a headless storefront. They shar
 
 <Aside type="tip">
 You can mix modes across pages — e.g. embed the full UI on a landing page and build a bespoke configurator elsewhere — using the same API key.
+</Aside>
+
+<Aside type="note" title="Not just browsers">
+The API works from any HTTP client. For clients that can't run the JS SDK's cart helpers — like a TapCart custom block — `POST /configure` returns a [cart-ready payload](/api/endpoints/#configure-a-bundle) with the line items and `_bundles` attribute pre-encoded. See [TapCart mobile apps](/guides/tapcart/).
 </Aside>
 
 ## What's the same in both modes

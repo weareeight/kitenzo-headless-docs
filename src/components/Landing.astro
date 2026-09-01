@@ -1,91 +1,277 @@
 ---
-// Below-the-hero landing content: alternating sections, numbered steps, footer.
+// Below-the-hero landing content, in the kitenzo.com enterprise style:
+// bordered bands, mono kickers, ledger rows, brand-coloured code panels.
 import SiteFooter from './SiteFooter.astro';
+
+const codeEmbed = `<span class="kw">&lt;link</span> rel=<span class="str">"stylesheet"</span> href=<span class="str">"…/bundle-builder-bundle.css"</span><span class="kw">&gt;</span>
+<span class="kw">&lt;script</span> src=<span class="str">"…/bundle-builder-bundle.js"</span> type=<span class="str">"module"</span><span class="kw">&gt;</span>
+
+<span class="fn">&lt;bundle-builder-bundle-v1</span>
+  id=<span class="str">"42"</span>
+  api-key=<span class="str">"kit_live_…"</span>
+  prefix=<span class="str">"https://live.bb.eight-cdn.com/api/headless/v1/embed"</span><span class="fn">&gt;</span>`;
+
+const codeSdk = `<span class="kw">import</span> { useBundle, useBundleBuilder,
+         useBundlePrice, useBundleCart }
+  <span class="kw">from</span> <span class="str">'@kitenzo/react'</span>
+
+<span class="kw">const</span> { bundle } = <span class="fn">useBundle</span>(bundleId)
+<span class="kw">const</span> { addItem, isSatisfied, errors } =
+  <span class="fn">useBundleBuilder</span>(bundle)
+<span class="kw">const</span> { formattedDiscountedPrice } =
+  <span class="fn">useBundlePrice</span>(bundle, selections)`;
+
+const codeTapcart = `<span class="cm">// inside a TapCart custom block</span>
+<span class="kw">const</span> { cart } = <span class="kw">await</span> <span class="fn">configure</span>(<span class="str">42</span>, picks)  <span class="cm">// POST /bundles/42/configure</span>
+
+Tapcart.<span class="fn">action</span>(<span class="str">'cart/add'</span>, {
+  lineItems: cart.line_items.<span class="fn">map</span>(toTapcartLine)  <span class="cm">// _bundle_data on every line</span>
+})
+Tapcart.<span class="fn">action</span>(<span class="str">'cart/updateAttributes'</span>, {
+  attributes: <span class="fn">mergeBundles</span>(cart.attributes)      <span class="cm">// merge, never overwrite _bundles</span>
+})
+Tapcart.<span class="fn">action</span>(<span class="str">'cart/checkout'</span>)                  <span class="cm">// Cart Transform prices it</span>`;
+
+const runsOn = [
+  { title: 'Hydrogen / Remix', desc: 'Storefront API cart, SSR loaders', href: '/guides/hydrogen/' },
+  { title: 'Next.js & React', desc: 'Provider, hooks, local pricing', href: '/guides/nextjs/' },
+  { title: 'TapCart mobile apps', desc: 'Custom block, cart-ready payload', href: '/guides/tapcart/', badge: 'New' },
+  { title: 'Any HTTP client', desc: 'Vanilla JS, Vue, Svelte, server-side', href: '/api/' },
+];
+
+const neverImplement = [
+  'Selection state, section limits and required-product validation',
+  'Bundle price, discount and tier calculations — locally, with no round trip',
+  'Server-side price verification before checkout',
+  'Cart line encoding and the <code>_bundles</code> cart attribute',
+  'Discounting at checkout, via a Shopify Cart Transform function',
+  'Keeping theme, Hydrogen and mobile on one shared engine',
+];
+
+const endpoints = [
+  { m: 'GET', p: '/bundles' },
+  { m: 'GET', p: '/bundles/{id}' },
+  { m: 'GET', p: '/bundles/{id}/products' },
+  { m: 'POST', p: '/bundles/{id}/price' },
+  { m: 'POST', p: '/bundles/{id}/configure' },
+  { m: 'GET', p: '/settings' },
+];
+const codeEndpoints = endpoints
+  .map((e) => `<span class="m">${e.m.padEnd(5, ' ')}</span><span class="p">${e.p}</span>`)
+  .join('\n');
+
+const steps = [
+  { title: 'Request access', body: 'Headless is invite-only. Email <a href="mailto:support@kitenzo.com">support@kitenzo.com</a> and we enable it on your shop.' },
+  { title: 'Create a key', body: 'Generate a publishable <code>kit_live_…</code> key in Settings → Headless, scoped to the origins you allow.' },
+  { title: 'Read & build', body: 'Fetch bundles over REST or the SDK and render your own UI — or drop in the embed and render nothing at all.' },
+  { title: 'Configure & check out', body: 'Submit the selection, write the returned lines and <code>_bundles</code> attribute to the Shopify cart, and Cart Transform applies the discount at checkout.' },
+];
+
+const dataCells = [
+  { title: 'Bundles, sections & variants', desc: 'Published bundles, ordered steps, live variant pricing, SKUs, options and inventory.', href: '/data/products/' },
+  { title: 'Discounts', desc: 'Flat and tiered discounts — percentage, fixed or fixed-price — with thresholds and operators.', href: '/data/discounts/' },
+  { title: 'Limit rules', desc: 'All eight rule types that decide what counts as a valid bundle, section-scoped or bundle-wide.', href: '/data/limit-rules/' },
+  { title: 'Required products', desc: 'Items every configuration must include, appended and validated on submit.', href: '/data/required-products/' },
+  { title: 'Conditions & subscriptions', desc: 'The conditions-engine rule graph and live selling plans, evaluated client-side by the SDK.', href: '/data/conditions-subscriptions/' },
+  { title: 'Bundle types', desc: 'Native, single-product and multiple-products — and how each one reaches the cart.', href: '/data/bundle-types/' },
+];
+
+const notes = [
+  { title: 'Access is granted, not self-serve', body: 'The headless API is enabled per shop. Talk to us and we turn it on, mint your keys and set the allowed origins with you.' },
+  { title: 'The discount lives at checkout', body: 'For native bundles the Cart Transform reads the <code>_bundles</code> cart attribute. Skip it and the bundle rings up at full price — the SDK and the <code>/configure</code> cart payload both write it for you.' },
+  { title: 'Versioning', body: 'The REST API is v1 and stable. The npm packages are pre-1.0 and follow semver — pin them and read the changelog before upgrading.' },
+];
 ---
 
-<!-- Two ways to integrate -->
-<section class="kz-section kz-section--cream">
-  <div class="kz-section__inner">
-    <div class="kz-section__head is-center kz-reveal">
-      <span class="kz-kicker">Two integration modes</span>
-      <h2 class="kz-twotone"><span class="ink">Embed the full UI,</span> or build your own.</h2>
-      <p class="kz-section__lead">Same API, same key. Choose how much of the bundle experience you want to own.</p>
+<!-- Runs on -->
+<section class="kz-section kz-section--muted kz-section--slim">
+  <div class="kz-container">
+    <div class="kz-runs kz-reveal">
+      {runsOn.map((r) => (
+        <a href={r.href}>
+          <span class="kz-runs__title">{r.title}{r.badge && <span class="kz-badge kz-badge--new">{r.badge}</span>}</span>
+          <span class="kz-runs__desc">{r.desc}</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- How you build -->
+<section class="kz-section">
+  <div class="kz-container">
+    <div class="kz-head kz-reveal">
+      <p class="kz-kicker">How you build</p>
+      <h2 class="kz-h2">Embed the full UI, <span class="dim">or own every pixel.</span></h2>
+      <p class="kz-lead">Two integration modes, one API, one key. Both read the same bundle definition and end in the same Shopify-native checkout.</p>
+    </div>
+
+    <div class="kz-paths">
+      <div class="kz-path kz-reveal">
+        <p class="kz-kicker">Mode 01 — Embed</p>
+        <h3>The full UI, zero UI code</h3>
+        <p>The same admin-configured experience your Liquid theme renders — templates, conditions engine, limit rules, tiered discounts — mounted in your storefront.</p>
+        <div class="kz-code">
+          <div class="kz-code__bar"><span>web component</span></div>
+          <pre><code set:html={codeEmbed} /></pre>
+        </div>
+        <ul class="kz-plus">
+          <li>Web component, React <code>BundleEmbed</code>, or vanilla <code>createBundleEmbed</code></li>
+          <li>Intercept <code>kitenzo:addtocart</code> and write the cart yourself</li>
+          <li>Merchants restyle it from the Kitenzo admin, not a release</li>
+        </ul>
+        <a class="kz-more" href="/embed/">Embed guide →</a>
+      </div>
+
+      <div class="kz-path kz-reveal" data-delay="1">
+        <p class="kz-kicker kz-kicker--accent">Mode 02 — SDK · Recommended</p>
+        <h3>A custom UI on our engine</h3>
+        <p>Typed hooks for selection state, validation, local pricing and cart compilation. You write the interface in your design system; Kitenzo runs the rules.</p>
+        <div class="kz-code">
+          <div class="kz-code__bar"><span>@kitenzo/react</span><span>0.4.0</span></div>
+          <pre><code set:html={codeSdk} /></pre>
+        </div>
+        <ul class="kz-plus">
+          <li>Your code, your repo — no lock-in to a template</li>
+          <li><code>addBundleToCart</code> writes lines + <code>_bundles</code> in one call</li>
+          <li>Conditions engine and Shopify Markets pricing built in</li>
+        </ul>
+        <a class="kz-more" href="/sdk/">SDK guide →</a>
+      </div>
+    </div>
+
+    <!-- TapCart -->
+    <div class="kz-path kz-path--wide kz-reveal">
+      <div class="kz-path__grid">
+        <div>
+          <p class="kz-kicker kz-kicker--accent">New — Native mobile</p>
+          <h3>Bundles inside a TapCart app</h3>
+          <p>
+            TapCart replaces the theme, so Liquid bundles never reach the app. Call
+            <code>/configure</code> from a custom block instead: it returns a cart-ready payload —
+            line items carrying <code>_bundle_data</code> plus the <code>_bundles</code> attribute —
+            that you hand straight to TapCart's cart actions. Checkout runs Shopify's real web
+            checkout in the native sheet, so Cart Transform prices the bundle exactly as on the web.
+          </p>
+          <a class="kz-more" href="/guides/tapcart/">TapCart guide →</a>
+        </div>
+        <div class="kz-code">
+          <div class="kz-code__bar"><span>tapcart custom block</span><span class="pill">cart-ready</span></div>
+          <pre><code set:html={codeTapcart} /></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- For developers -->
+<section class="kz-section kz-section--muted">
+  <div class="kz-container">
+    <div class="kz-split">
+      <div class="kz-reveal">
+        <p class="kz-kicker">The engine</p>
+        <h2 class="kz-h2">Build any bundle experience <span class="dim">without rebuilding bundle logic.</span></h2>
+        <p class="kz-lead">You design the experience. Kitenzo tells you what's possible, what it costs, and exactly what to send to Shopify.</p>
+        <p class="kz-kicker kz-split__label">Things you never implement again</p>
+        <ul class="kz-plus">
+          {neverImplement.map((item) => (
+            <li set:html={item} />
+          ))}
+        </ul>
+      </div>
+      <div class="kz-reveal" data-delay="1">
+        <div class="kz-code kz-code--lg kz-endpoints">
+          <div class="kz-code__bar"><span>headless api</span><span>v1</span></div>
+          <pre><code set:html={codeEndpoints} /></pre>
+          <div class="kz-code__foot">
+            Authenticated with a publishable key, scoped to the origins you allow. Prices can be
+            verified server-side before you configure, and every configured bundle checks out
+            through Shopify Cart Transform.
+          </div>
+        </div>
+        <a class="kz-more" href="/api/endpoints/">Full endpoint reference →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="kz-section">
+  <div class="kz-container">
+    <div class="kz-split">
+      <div class="kz-reveal">
+        <p class="kz-kicker">How it works</p>
+        <h2 class="kz-h2">From API key to checkout <span class="dim">in four steps.</span></h2>
+        <p class="kz-lead">No proxy to run and no webhook choreography — the SDK and the embed talk directly to the API, and the cart contract is three keys on a Shopify cart.</p>
+      </div>
+      <ol class="kz-steps kz-reveal" data-delay="1">
+        {steps.map((s, i) => (
+          <li class="kz-step">
+            <span class="kz-step__num">{String(i + 1).padStart(2, '0')}</span>
+            <div>
+              <h3>{s.title}</h3>
+              <p set:html={s.body} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- The data layer -->
+<section class="kz-section kz-section--muted">
+  <div class="kz-container">
+    <div class="kz-head kz-reveal">
+      <p class="kz-kicker">The data layer</p>
+      <h2 class="kz-h2">Everything your bundles know, <span class="dim">over one API.</span></h2>
+      <p class="kz-lead">Structure, live pricing and rules, read straight from the engine that powers your Liquid storefront.</p>
     </div>
     <div class="kz-grid">
-      <a class="kz-feature kz-reveal" href="/embed/">
-        <span class="kz-feature__eyebrow">Mode 01</span>
-        <h3>Embed the full UI</h3>
-        <p>Drop in the <code>&lt;bundle-builder-bundle-v1&gt;</code> web component (or React <code>BundleEmbed</code>). The admin-configured template, conditions, limit rules and tiered discounts — with zero UI code.</p>
-        <span class="more">Embed guide →</span>
-      </a>
-      <a class="kz-feature kz-reveal" href="/sdk/">
-        <span class="kz-feature__eyebrow">Mode 02</span>
-        <h3>Build a custom UI</h3>
-        <p>Use <code>@kitenzo/core</code> and <code>@kitenzo/react</code> to build a pixel-perfect UI with typed hooks. You own rendering; Kitenzo owns validation, pricing and the cart contract.</p>
-        <span class="more">SDK guide →</span>
-      </a>
+      {dataCells.map((c) => (
+        <a class="kz-cell kz-reveal" href={c.href}>
+          <h3>{c.title}</h3>
+          <p>{c.desc}</p>
+          <span class="kz-more">Read more →</span>
+        </a>
+      ))}
     </div>
   </div>
 </section>
 
-<!-- Everything you can pull -->
+<!-- Worth knowing -->
 <section class="kz-section">
-  <div class="kz-section__inner">
-    <div class="kz-section__head is-center kz-reveal">
-      <span class="kz-kicker">The data layer</span>
-      <h2 class="kz-twotone"><span class="ink">Everything your bundles know,</span> over one API.</h2>
-      <p class="kz-section__lead">Read structure, live pricing and rules straight from the same engine that powers Liquid storefronts.</p>
+  <div class="kz-container">
+    <div class="kz-head kz-reveal">
+      <p class="kz-kicker">Worth knowing</p>
+      <h2 class="kz-h2">What we'd want to know <span class="dim">before we started.</span></h2>
     </div>
     <div class="kz-grid">
-      <a class="kz-feature kz-reveal" href="/data/products/">
-        <span class="kz-feature__eyebrow">Structure</span>
-        <h3>Bundles, sections &amp; variants</h3>
-        <p>Published bundles, ordered sections, per-section product lists, and live variant pricing, SKU, availability and inventory.</p>
-      </a>
-      <a class="kz-feature kz-reveal" href="/data/discounts/">
-        <span class="kz-feature__eyebrow">Pricing</span>
-        <h3>Discounts</h3>
-        <p>Flat and tiered discounts — percentage, fixed amount or fixed price — with thresholds, operators and minimums.</p>
-      </a>
-      <a class="kz-feature kz-reveal" href="/data/limit-rules/">
-        <span class="kz-feature__eyebrow">Rules</span>
-        <h3>Rules &amp; requirements</h3>
-        <p>All six limit-rule types, required products, and the conditions-engine signal — everything that makes a bundle valid.</p>
-      </a>
-      <a class="kz-feature kz-reveal" href="/data/conditions-subscriptions/">
-        <span class="kz-feature__eyebrow">Extras</span>
-        <h3>Conditions &amp; subscriptions</h3>
-        <p>Conditional free-item signals and subscription configuration surfaced through the configure response.</p>
-      </a>
+      {notes.map((n) => (
+        <div class="kz-cell kz-reveal">
+          <h3>{n.title}</h3>
+          <p set:html={n.body} />
+        </div>
+      ))}
     </div>
   </div>
 </section>
 
-<!-- Get started in 4 steps -->
-<section class="kz-section kz-section--cream">
-  <div class="kz-section__inner">
-    <div class="kz-section__head kz-reveal">
-      <span class="kz-kicker">How it works</span>
-      <h2 class="kz-twotone"><span class="ink">Get started</span> in four steps.</h2>
-    </div>
-    <div class="kz-steps kz-reveal">
-      <div><span class="num">01</span><h3>Request access</h3><p>Email support to enable Headless on your store.</p></div>
-      <div><span class="num">02</span><h3>Create a key</h3><p>Generate a <code>kit_live_…</code> key in Settings → Headless.</p></div>
-      <div><span class="num">03</span><h3>Fetch &amp; build</h3><p>Read bundles with the SDK and render your own UI.</p></div>
-      <div><span class="num">04</span><h3>Add to cart</h3><p>Submit the selection and write the cart attributes.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- Built on the same engine -->
-<section class="kz-section">
-  <div class="kz-section__inner kz-band kz-reveal">
-    <span class="kz-kicker">Same engine, same results</span>
-    <h2 class="kz-twotone"><span class="ink">Discounts apply at checkout,</span> exactly like Liquid.</h2>
-    <p class="kz-section__lead" style="margin-inline:auto;">Pricing, validation and the Shopify cart transform are identical whether a bundle renders in a theme or your headless frontend. No proxy to run — the SDK talks directly to the API.</p>
-    <div class="kz-textlinks">
-      <a href="/getting-started/quickstart/">Get started →</a>
-      <a href="/guides/cart-discounts/">Cart &amp; discounts →</a>
+<!-- Final CTA -->
+<section class="kz-section kz-section--muted">
+  <div class="kz-container">
+    <div class="kz-cta kz-reveal">
+      <h2 class="kz-h2">Tell us what you want to build.</h2>
+      <p class="kz-lead">We'll enable Headless on your shop, mint your keys, and walk your team or your agency through the first build.</p>
+      <div class="kz-actions">
+        <a class="kz-btn kz-btn--primary" href="mailto:support@kitenzo.com?subject=Kitenzo%20Headless%20access">Request access</a>
+        <a class="kz-btn kz-btn--secondary" href="/getting-started/quickstart/">Read the quickstart →</a>
+      </div>
+      <ul class="kz-meta">
+        <li>One bundle definition</li>
+        <li>Any storefront</li>
+        <li>Shopify-native checkout</li>
+      </ul>
     </div>
   </div>
 </section>

@@ -1,6 +1,33 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { ExpressiveCodeTheme } from 'astro-expressive-code';
+
+// Brand-matched code theme: warm near-black well, muted keywords, warm-white
+// identifiers, olive strings — the same palette kitenzo.com uses in its code panels.
+const kitenzoDark = new ExpressiveCodeTheme({
+  name: 'kitenzo-dark',
+  type: 'dark',
+  colors: {
+    'editor.background': '#060505',
+    'editor.foreground': '#c9c3b6',
+  },
+  tokenColors: [
+    { scope: ['comment', 'punctuation.definition.comment'], settings: { foreground: '#6f6a5e', fontStyle: 'italic' } },
+    { scope: ['keyword', 'storage.type', 'storage.modifier', 'keyword.operator'], settings: { foreground: '#8a8478' } },
+    { scope: ['string', 'punctuation.definition.string'], settings: { foreground: '#a4b581' } },
+    { scope: ['constant.numeric', 'constant.language', 'constant.other', 'support.constant'], settings: { foreground: '#c3d0a6' } },
+    { scope: ['entity.name.function', 'support.function', 'meta.function-call entity.name.function'], settings: { foreground: '#f4f2ed' } },
+    { scope: ['variable', 'variable.other.readwrite', 'meta.definition.variable'], settings: { foreground: '#d9d3c6' } },
+    { scope: ['variable.parameter'], settings: { foreground: '#c9c3b6' } },
+    { scope: ['entity.name.type', 'entity.name.class', 'support.type', 'support.class'], settings: { foreground: '#e6e1d7' } },
+    { scope: ['entity.name.tag'], settings: { foreground: '#d9d3c6' } },
+    { scope: ['entity.other.attribute-name'], settings: { foreground: '#8a8478' } },
+    { scope: ['support.type.property-name.json', 'meta.object-literal.key'], settings: { foreground: '#d9d3c6' } },
+    { scope: ['punctuation.separator', 'punctuation.terminator', 'meta.brace'], settings: { foreground: '#8a8478' } },
+    { scope: ['markup.heading'], settings: { foreground: '#f4f2ed' } },
+  ],
+});
 
 // https://astro.build/config
 export default defineConfig({
@@ -9,7 +36,7 @@ export default defineConfig({
     starlight({
       title: 'Headless',
       description:
-        'Pull your Kitenzo bundles into any headless storefront — Hydrogen, Next.js, or a fully custom frontend. REST API, JavaScript/TypeScript SDK, and an embeddable web component.',
+        'Pull your Kitenzo bundles into any storefront — Hydrogen, Next.js, TapCart mobile apps, or a fully custom frontend. REST API, TypeScript SDK, and an embeddable web component.',
       logo: {
         src: './src/assets/logo.png',
         alt: 'Kitenzo',
@@ -17,16 +44,42 @@ export default defineConfig({
       favicon: '/favicon.svg',
       customCss: ['./src/styles/theme.css'],
       expressiveCode: {
-        // Single fixed (dark) code theme — no light/dark switching.
-        themes: ['github-dark'],
-        styleOverrides: { borderRadius: '12px' },
+        // Single fixed dark theme, matched to the kitenzo.com palette.
+        themes: [kitenzoDark],
+        useStarlightDarkModeSwitch: false,
+        useStarlightUiThemeColors: false,
+        styleOverrides: {
+          borderRadius: '12px',
+          borderColor: '#282520',
+          codeBackground: '#060505',
+          codeFontSize: '0.8125rem',
+          codeLineHeight: '1.7',
+          frames: {
+            editorBackground: '#060505',
+            terminalBackground: '#060505',
+            editorTabBarBackground: '#12110e',
+            terminalTitlebarBackground: '#12110e',
+            editorActiveTabBackground: '#060505',
+            editorActiveTabForeground: '#f4f2ed',
+            editorActiveTabIndicatorTopColor: '#a4b581',
+            editorTabBarBorderBottomColor: '#1c1a16',
+            terminalTitlebarForeground: '#8a8478',
+            terminalTitlebarBorderBottomColor: '#1c1a16',
+            terminalTitlebarDotsForeground: '#282520',
+            terminalTitlebarDotsOpacity: '1',
+            frameBoxShadowCssValue: 'none',
+          },
+        },
       },
       components: {
         // Site-wide invite-only banner (renders on every page).
         Banner: './src/components/Banner.astro',
-        // Single fixed appearance — remove the light/dark toggle.
+        // Single fixed dark appearance — pin data-theme and remove the toggle.
+        ThemeProvider: './src/components/ThemeProvider.astro',
         ThemeSelect: './src/components/ThemeSelect.astro',
-        // Custom landing hero with the animated visual.
+        // Header right group: kitenzo.com-style text link + pill.
+        SocialIcons: './src/components/SocialIcons.astro',
+        // Custom landing hero with the runtime visual.
         Hero: './src/components/Hero.astro',
       },
       social: [
@@ -55,8 +108,10 @@ export default defineConfig({
         },
         { tag: 'meta', attrs: { property: 'og:image', content: 'https://headless.kitenzo.com/og.png' } },
         { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
-        { tag: 'meta', attrs: { name: 'theme-color', content: '#17150e' } },
-        // Scroll-reveal: fade-up elements with .kz-reveal / animate the hero visual.
+        { tag: 'meta', attrs: { name: 'theme-color', content: '#0c0b09' } },
+        // No-JS fallback: the reveal elements must not stay invisible without the observer.
+        { tag: 'noscript', content: '<style>.kz-reveal{opacity:1;transform:none}.rt__row{opacity:1}</style>' },
+        // Scroll-reveal: fade-up elements with .kz-reveal / start the hero visual loop.
         {
           tag: 'script',
           content:
@@ -139,6 +194,7 @@ export default defineConfig({
           items: [
             { label: 'Shopify Hydrogen', link: '/guides/hydrogen/' },
             { label: 'Next.js', link: '/guides/nextjs/' },
+            { label: 'TapCart mobile apps', link: '/guides/tapcart/', badge: { text: 'New', variant: 'success' } },
             { label: 'Cart & discount application', link: '/guides/cart-discounts/' },
             { label: 'Local development', link: '/guides/local-dev/' },
           ],

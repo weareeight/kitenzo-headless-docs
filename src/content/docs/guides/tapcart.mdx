@@ -1,0 +1,189 @@
+---
+title: TapCart mobile apps
+description: Render Kitenzo bundles inside a TapCart custom block and get the bundle discount at Shopify checkout, using the cart-ready payload from /configure.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+[TapCart](https://www.tapcart.com) turns a Shopify store into a native iOS/Android app — and **replaces the theme entirely**. None of Kitenzo's storefront rendering (the theme app extension, Liquid blocks, the web component embed) exists inside a TapCart app, so a merchant on TapCart gets no bundle UI on mobile by default.
+
+The fix is smaller than it sounds, because Kitenzo's discount engine is **frontend-agnostic**. Bundle discounts aren't applied by theme JavaScript or discount codes — a server-side **Shopify Cart Transform** function prices the bundle at checkout by reading two things off the real Shopify cart:
+
+- the **`_bundles` cart attribute** (bundle content + a server-signed discount), and
+- a **`_bundle_data` line-item property** on each component line.
+
+Anything that writes those onto the cart gets the discount for free. A TapCart **custom block** can: it renders your bundle picker from the headless API, and `POST /configure` returns both payloads ready to hand to TapCart's cart actions.
+
+## How it fits together
+
+```text
+TapCart app — custom block (webview)
+  │
+  ├─ 1. Read the bundle ───────────► Kitenzo API
+  │      GET /bundles/:id, /bundles/:id/products
+  │
+  ├─ 2. Validate + configure ──────► Kitenzo API
+  │      POST /bundles/:id/configure → cart { line_items, attributes }
+  │
+  ├─ 3. Write the TapCart cart ────► Tapcart.action('cart/add')
+  │                                  Tapcart.action('cart/updateAttributes')
+  │
+  └─ 4. Check out ─────────────────► Tapcart.action('cart/checkout')
+                                       Shopify web checkout in the native sheet
+                                       Cart Transform applies the discount
+```
+
+TapCart's `cart/checkout` presents the **real Shopify web checkout** in a native sheet (Checkout Sheet Kit) — exactly where Cart Transform functions run. There is no separate native checkout to bypass the discount.
+
+## Prerequisites
+
+- Headless [enabled for your shop](/getting-started/access/) and a [headless API key](/getting-started/api-keys/).
+- A published **native** bundle (the Cart Transform path — see [Bundle types](/data/bundle-types/)).
+- A TapCart app on a plan that includes **custom blocks**, and access to TapCart's block tooling (the [Custom Blocks editor](https://app.tapcart.com/custom-blocks) for classic HTML/CSS/JS blocks, or the TapCart CLI for App Studio blocks). Check with your TapCart rep which applies to your plan.
+
+<Aside type="note" title="Which TapCart block generation?">
+TapCart has two generations of custom blocks. **App Studio** blocks (current) are React components that call `Tapcart.action('cart/add', …)`. **Classic custom blocks** (Web Bridge SDK) are HTML/CSS/JS and call `Tapcart.actions.addToCart({ lineItems })` — the same `lineItems` shape. The Kitenzo side is identical in both; the samples below use the current `Tapcart.action(…)` form, with the classic equivalent noted where it differs. Verify the exact action names against [TapCart's developer docs](https://dev.tapcart.com) for your SDK version.
+</Aside>
+
+## Step 1 — Create a key and sort CORS
+
+The block runs in a webview and calls the Kitenzo API from the client, so the request is subject to [CORS](/getting-started/cors/) and the key's **allowed origins**.
+
+TapCart doesn't document the `Origin` its block webviews send, so do this in two passes:
+
+1. Build against a `kit_test_…` key with allowed origins set to `*`.
+2. In the block, log a request's origin once (or capture it from your own endpoint), then create the production `kit_live_…` key restricted to that origin. Origins can't be edited after creation — recreate the key if it changes.
+
+Keys are **publishable** (they can only read bundles and submit configurations), so shipping one inside a block is fine — scoping the origin is still good hygiene.
+
+## Step 2 — Read the bundle and render your picker
+
+Fetch the structure and the live product data, then render a native-feeling selector however you like:
+
+```js
+const KITENZO_API = 'https://live.bb.eight-cdn.com/api/headless/v1';
+const HEADERS = { Authorization: 'Bearer kit_live_…', 'Content-Type': 'application/json' };
+
+const bundle = await (await fetch(`${KITENZO_API}/bundles/42`, { headers: HEADERS })).json();
+const { products } = await (
+  await fetch(`${KITENZO_API}/bundles/42/products`, { headers: HEADERS })
+).json();
+```
+
+- `bundle.sections[]` gives you the steps and which products belong to each; `products[]` carries titles, images, variants, live prices and availability. See [Sections, products & variants](/data/products/).
+- A step's pick counts arrive as `total-number-of-products` entries in `bundle.limitRules` (section-scoped or bundle-wide) — see [Limit rules](/data/limit-rules/).
+- In an **App Studio** block you can skip the hand-rolled state entirely: [`@kitenzo/core`](/reference/core/) has zero dependencies, so `createBundleBuilder`, `getSectionLimits` and `calculatePrice` run fine in a block. Classic HTML blocks can use plain `fetch` as above.
+
+## Step 3 — Configure the selection
+
+When the shopper confirms, post the selection. For native bundles the response includes a **`cart` object with everything a non-JS-SDK client needs** — you never reconstruct the `_bundle_data` / `_bundles` encoding yourself:
+
+```js
+const res = await fetch(`${KITENZO_API}/bundles/42/configure`, {
+  method: 'POST',
+  headers: HEADERS,
+  body: JSON.stringify({
+    type: 'native',
+    products: [
+      { variant: '1001', product: '111', section: 1 },
+      { variant: '1002', product: '111', section: 1 },
+    ],
+  }),
+});
+const { cart, pricing } = await res.json();
+```
+
+```json title="cart — from the /configure response"
+{
+  "line_items": [
+    { "id": 2000001, "quantity": 1, "properties": { "_bundle_data": "9876#44556677#<uuid>" } },
+    { "id": 2000002, "quantity": 1, "properties": { "_bundle_data": "9876#44556677#<uuid>" } }
+  ],
+  "attributes": {
+    "_bundles": "{\"9876\": {\"configuredBundleId\": 9876, \"discount\": \"<signed>\", \"title\": \"Summer Bundle\", \"items\": [...] }}"
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `line_items[]` | One entry per selected variant — a Shopify `/cart/add.js`-shaped item (`id`, `quantity`, `properties`). Every entry carries the `_bundle_data` property, and all entries from one call share the same trailing `uniqueId` so the Cart Transform groups them as one bundle. |
+| `attributes._bundles` | The stringified `_bundles` cart attribute value: a one-entry map keyed by `configuredBundleId`. The `discount` inside it is the **server-signed** (encrypted) discount the Cart Transform decrypts — not a display string, and not client-forgeable. |
+
+<Aside type="caution" title="Native bundles only">
+For `single-product` and `multiple-products` bundles `cart` is `null` — their discount is already baked into the configured variant's price. Add the response's `variant_id` to the cart at quantity 1 and you're done; no attributes needed.
+</Aside>
+
+## Step 4 — Write it into the TapCart cart
+
+Map the payload onto TapCart's cart actions. Two rules matter: **every line keeps its `_bundle_data` property**, and **`_bundles` is merged, never overwritten** (the cart may already hold another bundle).
+
+```js
+function addBundleToTapcartCart(cart) {
+  // 1. Add one line per component — attributes carry `_bundle_data` through.
+  Tapcart.action('cart/add', {
+    lineItems: cart.line_items.map((li) => ({
+      variantId: String(li.id),
+      quantity: li.quantity,
+      attributes: Object.entries(li.properties).map(([key, value]) => ({ key, value })),
+    })),
+  });
+
+  // 2. Merge this bundle into the `_bundles` cart attribute.
+  const existing = Tapcart.variables.cart?.attributes ?? [];
+  const current = existing.find((a) => a.key === '_bundles');
+  const merged = {
+    ...JSON.parse(current?.value ?? '{}'),
+    ...JSON.parse(cart.attributes._bundles),
+  };
+  Tapcart.action('cart/updateAttributes', {
+    attributes: [
+      ...existing.filter((a) => a.key !== '_bundles'),
+      { key: '_bundles', value: JSON.stringify(merged) },
+    ],
+  });
+}
+```
+
+On **classic** custom blocks the add is `Tapcart.actions.addToCart({ lineItems })` with the identical `lineItems` shape; consult TapCart's docs for the cart-attribute action on your SDK version.
+
+<Aside type="danger" title="Skip `_bundles` and the bundle rings up at full price">
+If the lines reach checkout without the `_bundles` attribute (or without `_bundle_data` on each line), the Cart Transform can't match them to a bundle and applies **no discount**. This is the single most common integration bug — same as on web, see [Cart & discount application](/guides/cart-discounts/).
+</Aside>
+
+## Step 5 — Check out, and verify on your app
+
+Send the shopper on with `Tapcart.action('cart/checkout')` (or let them tap the cart). The discount appears **in the Shopify checkout sheet** — not necessarily in TapCart's cart subtotal, which doesn't run the transform.
+
+Before going live, verify on a real device:
+
+1. **Standard path** — add a bundle, open checkout, confirm the discounted bundle price is shown.
+2. **Wallet path** — repeat via the **Apple Pay / Shop Pay button from the cart**. A cart-based accelerated checkout carries the cart's attributes, so the discount should survive — but prove it on your app before launch.
+3. **Multiple bundles** — add two different bundles; both discounts should apply (this is the `_bundles` merge working).
+4. **The trap** — a **PDP-direct express buy** (a wallet button that buys one variant straight from a product screen) creates a fresh checkout that bypasses the cart entirely: no `_bundles`, no discount. Make sure your app's UX can't route a bundle through it.
+
+## Limitations & notes
+
+- **Native bundles only** get the `cart` payload; other types don't need it (discount is in the variant price).
+- **Subscriptions:** the `cart` payload doesn't attach a selling plan to the lines yet, so a bundle bought through it won't recur. If you need bundle subscriptions in a TapCart app, [talk to us](/resources/support/) first.
+- **Conditions engine:** bundles using conditions still price correctly (the signal is baked into the signed discount at configure time), but driving conditional show/hide logic in your picker needs the evaluator in [`@kitenzo/core`](/reference/core/) — practical in App Studio blocks, hand-rolled otherwise.
+- **Personalisation image uploads** are embed-only; in a custom block you'd host images yourself. See [the personalisation notes](/data/conditions-subscriptions/).
+- **Rate limits are per key** (default 100 requests/minute — [Rate limits](/api/rate-limits/)), and every app user shares the block's key. Cache `GET` responses in the block and ask us about a higher limit before a launch spike.
+
+## Testing the payload without an app
+
+You don't need TapCart to see the cart payload — any terminal will do:
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer kit_test_…" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"native","products":[{"variant":"<variant-id>","product":"<product-id>","section":<section-id>}]}' \
+  "https://live.bb.eight-cdn.com/api/headless/v1/bundles/<bundle-id>/configure" | jq '.cart'
+```
+
+Confirm every `line_items[].properties._bundle_data` shares the same third `#` segment, and that the `discount` inside `attributes._bundles` matches the response's top-level `discount`.
+
+## Alternative: embed the full UI in a block
+
+The [web component](/embed/web-component/) also runs in a block's webview (it authenticates with the same key, CORS included). Listen for its [`kitenzo:addtocart` event](/embed/cart/), call `preventDefault()`, and map `event.detail.items` + `event.detail.bundleContent` onto the same TapCart actions as above. You trade the native look-and-feel for zero UI code — most TapCart builds are better served by the custom picker, which is why this guide leads with it.

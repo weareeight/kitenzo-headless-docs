@@ -41,6 +41,10 @@ await addBundleToCart(result, {
 
 The embed gives you everything in the `onAddToCart` payload — add `lines`, and if `bundleContent` is present (native), write it into `_bundles`. See [Cart integration](/embed/cart/).
 
+## The reliable path (no JS SDK — TapCart, native apps, servers)
+
+`POST /configure` returns a [`cart` object](/api/endpoints/#configure-a-bundle) for native bundles with both payloads pre-encoded: `line_items` (each carrying `_bundle_data`) and `attributes._bundles`. Write them to the cart as-is — merging `_bundles` with any existing value — and the transform does the rest. This is how the [TapCart integration](/guides/tapcart/) works.
+
 ## Verifying it worked
 
 - Inspect the cart's attributes: a native bundle should have a `_bundles` entry keyed by the configured bundle ID.

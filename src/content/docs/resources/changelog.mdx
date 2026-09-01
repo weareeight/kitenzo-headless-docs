@@ -16,12 +16,12 @@ The REST API is versioned in the path: `/api/headless/v1/`. Breaking changes wou
 ```json
 {
   "dependencies": {
-    "@kitenzo/react": "^0.2.6"
+    "@kitenzo/react": "^0.4.0"
   }
 }
 ```
 
-Current published version: **0.2.6** (both packages).
+Current published version: **0.4.0** (both packages).
 
 <Aside type="note" title="Pre-1.0">
 The SDK is pre-1.0. Minor versions may include changes — pin a version and review release notes before upgrading. The REST API surface under `/v1` is the stable contract.
@@ -29,7 +29,11 @@ The SDK is pre-1.0. Minor versions may include changes — pin a version and rev
 
 ## Notable changes
 
-- **0.2.6** — SDK split into `@kitenzo/core` (framework-agnostic) and `@kitenzo/react` (provider, hooks, `BundleEmbed`); added the bundle embed component for Mode 1.
+- **0.4.0** *(Aug 2026)* — Custom-component engine logic moved into the SDK.
+- **0.3.0** *(Aug 2026)* — Conditions engine exposed through the SDK (`evaluateConditions`, `calculatePriceWithConditions`, `snapshot.conditions`); Shopify Markets localised pricing (`countryCode`, presentment fields, `formatCurrency`, `resolvePresentmentPricing`); option-grid helpers (`options` / `optionValues` on the API, `resolveVariant` & friends); `isSatisfied` + `getSectionLimits` / `getBundleLimits`; AJAX cart transport and the `useBundleAjaxCart` / `useStorefrontBundleCart` flow hooks; required products hydrated and appended on submit; product `status`, `tags`, `descriptionHtml`, `compareAtPrice`; `amount-of-one-variant` and `amount-of-weight` limit rules; subscriptions program discovery (`sellingPlans`, `useSellingPlan`).
+- **API — cart-ready `/configure` payload** *(Jun 2026)* — native-bundle responses carry a `cart` object (line items + the `_bundles` attribute) so non-JS clients like [TapCart custom blocks](/guides/tapcart/) can write the Shopify cart without reconstructing the encoding.
+- **API — richer products** *(Jun 2026)* — `tags` and `descriptionHtml` on the products endpoint.
+- **0.2.6** *(Apr 2026)* — SDK split into `@kitenzo/core` (framework-agnostic) and `@kitenzo/react` (provider, hooks, `BundleEmbed`); added the bundle embed component for Mode 1.
 - **Headless API** — REST endpoints for listing/reading bundles, configuring selections and pricing, with per-key Bearer auth, CORS and rate limiting.
 
 <Aside type="tip" title="Heads-up on docs accuracy">

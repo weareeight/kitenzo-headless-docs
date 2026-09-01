@@ -1,0 +1,9 @@
+---
+// Overrides Starlight's ThemeProvider. The docs have a single, fixed dark
+// appearance (matching kitenzo.com), so we pin `data-theme="dark"` before
+// first paint and stub the picker API the default provider exposes.
+---
+<script is:inline>
+	document.documentElement.dataset.theme = 'dark';
+	window.StarlightThemeProvider = { updatePickers() {} };
+</script>
